@@ -37,9 +37,9 @@ class TestBaseRunnable:
         runnable.score()
         runnable.cleanup()
 
-        # run() should raise NotImplementedError
+        # execute() should raise NotImplementedError
         with pytest.raises(NotImplementedError):
-            runnable.run()
+            runnable.execute()
 
 
 class TestRunner:
@@ -137,7 +137,7 @@ class TestRunnableExecution:
                 model = self.config.get("model", "default")
                 self.run._log_event("model_configured", {"model": model})
 
-            def run(self):
+            def execute(self):
                 self.run_called = True
                 self.run._log_event("execution_started", {})
 
@@ -212,7 +212,7 @@ class TestRunnableExecution:
         """Test milestone run with artifact preservation."""
 
         class ArtifactRunnable(BaseRunnable):
-            def run(self):
+            def execute(self):
                 # Create some artifacts
                 artifacts = {
                     "model_weights": [0.1, 0.2, 0.3],
@@ -244,7 +244,7 @@ class TestRunnableExecution:
             def prepare(self):
                 self.run._log_event("prepare_started", {})
 
-            def run(self):
+            def execute(self):
                 raise RuntimeError("Execution failed")
 
             def score(self):
@@ -268,7 +268,7 @@ class TestRunnableExecution:
         event_types = [e["event_type"] for e in log_entries]
 
         assert "prepare_started" in event_types
-        assert "run_error" in event_types  # Error should be logged
+        assert "execute_error" in event_types  # Error should be logged
         assert "score_called" not in event_types  # Should not reach score
         assert "cleanup_called" in event_types  # Cleanup should still run
 
@@ -276,7 +276,7 @@ class TestRunnableExecution:
         """Test that cleanup exceptions don't propagate."""
 
         class CleanupFailingRunnable(BaseRunnable):
-            def run(self):
+            def execute(self):
                 self.run._log_event("run_completed", {})
 
             def cleanup(self):
@@ -306,7 +306,7 @@ class TestModuleLoading:
 from scryptorum.execution.runner import BaseRunnable
 
 class FileRunnable(BaseRunnable):
-    def run(self):
+    def execute(self):
         self.run._log_event("file_runnable_executed", {})
         self.run.log_metric("file_metric", 0.9, "test")
 """
@@ -355,6 +355,72 @@ class NotARunnable:
         with pytest.raises(ImportError, match="No runnable class found"):
             runner.run_experiment("no_runnable_test", runnable_module=str(module_file))
 
+    def test_load_runnable_class_skips_base_runnable(self, test_project_root: Path):
+        """Test that BaseRunnable itself is skipped in favor of concrete implementations."""
+        # Create a module file with both BaseRunnable and concrete implementation
+        module_content = """
+from scryptorum.execution.runner import BaseRunnable
+
+class MyRunnable(BaseRunnable):
+    def execute(self):
+        self.run._log_event("concrete_runnable_executed", {})
+"""
+        module_file = test_project_root / "concrete_runnable.py"
+        module_file.write_text(module_content)
+
+        runner = Runner(test_project_root)
+
+        run = runner.run_experiment(
+            "concrete_runnable_test", runnable_module=str(module_file)
+        )
+
+        # Verify the concrete class was loaded and executed (not BaseRunnable)
+        log_entries = verify_jsonl_file(run.log_file)
+        event_types = [e["event_type"] for e in log_entries]
+        assert "concrete_runnable_executed" in event_types
+
+    def test_python_path_auto_addition(self, test_project_root: Path):
+        """Test that ./src directory is automatically added to Python path."""
+        import sys
+        from pathlib import Path
+        
+        # Create src directory structure
+        src_dir = test_project_root / "src"
+        package_dir = src_dir / "test_package"
+        package_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create __init__.py
+        (package_dir / "__init__.py").write_text("")
+        
+        # Create runnable module
+        module_content = """
+from scryptorum.execution.runner import BaseRunnable
+
+class SrcRunnable(BaseRunnable):
+    def execute(self):
+        self.run._log_event("src_runnable_executed", {})
+"""
+        (package_dir / "runnable.py").write_text(module_content)
+        
+        # Change to test project root to simulate real usage
+        import os
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(test_project_root)
+            runner = Runner(test_project_root)
+
+            run = runner.run_experiment(
+                "src_path_test", runnable_module="test_package.runnable"
+            )
+
+            # Verify the module was loaded from src
+            log_entries = verify_jsonl_file(run.log_file)
+            event_types = [e["event_type"] for e in log_entries]
+            assert "src_runnable_executed" in event_types
+            
+        finally:
+            os.chdir(original_cwd)
+
     def test_run_experiment_no_runnable_warning(self, test_project_root: Path):
         """Test running experiment without runnable logs warning."""
         runner = Runner(test_project_root)
@@ -383,7 +449,7 @@ class TestRunnerIntegration:
                 # Log initial timing
                 self.run.log_timing("setup", 50.0)
 
-            def run(self):
+            def execute(self):
                 # Simulate LLM calls
                 prompts = ["Analyze sentiment", "Classify text", "Generate summary"]
 

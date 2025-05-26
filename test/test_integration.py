@@ -151,7 +151,7 @@ class TestEndToEndScenarios:
                 time.sleep(0.01)
                 self.run.log_timing("model_loading", 100.0)
 
-            def run(self):
+            def execute(self):
                 """Execute the classification experiment."""
                 # Load dataset
                 dataset = self._load_dataset()
@@ -457,7 +457,7 @@ class TestErrorHandlingAndRecovery:
             def prepare(self):
                 self.run._log_event("prepare_success", {})
 
-            def run(self):
+            def execute(self):
                 # Simulate partial failures
                 for i in range(5):
                     try:

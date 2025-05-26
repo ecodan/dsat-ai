@@ -4,6 +4,7 @@ Command-line interface for scryptorum project management.
 
 import argparse
 import sys
+import traceback
 from pathlib import Path
 
 from ..core.experiment import create_project, Experiment, resolve_project_root
@@ -382,41 +383,19 @@ def run_experiment_command(args) -> None:
                 run_id=args.run_id,
             )
         elif args.script:
-            # Run a script file
-            import importlib.util
-            import sys
-
-            script_path = Path(args.script)
+            # Run a script file through the Runner
+            script_path = Path(args.script).resolve()
             if not script_path.exists():
                 print(f"Script not found: {script_path}", file=sys.stderr)
                 sys.exit(1)
 
-            # Ensure we're working in the project root directory
-            import os
-
-            original_cwd = os.getcwd()
-            os.chdir(project_root)
-
-            try:
-                # Load and execute the script
-                spec = importlib.util.spec_from_file_location(
-                    "experiment_script", script_path
-                )
-                if spec is None or spec.loader is None:
-                    print(f"Could not load script: {script_path}", file=sys.stderr)
-                    sys.exit(1)
-
-                module = importlib.util.module_from_spec(spec)
-                sys.modules["experiment_script"] = module
-                spec.loader.exec_module(module)
-
-                # Try to find and call the main function if it exists
-                if hasattr(module, "main") and callable(getattr(module, "main")):
-                    module.main()
-
-                print(f"Executed experiment script: {script_path}")
-            finally:
-                os.chdir(original_cwd)
+            # Use the Runner to execute the script
+            runner.run_experiment(
+                experiment_name=args.experiment,
+                runnable_module=str(script_path),
+                run_type=run_type,
+                run_id=args.run_id,
+            )
         else:
             print("Must specify either --module or --script", file=sys.stderr)
             sys.exit(1)
@@ -425,6 +404,8 @@ def run_experiment_command(args) -> None:
 
     except Exception as e:
         print(f"Error running experiment: {e}", file=sys.stderr)
+        print("Stack trace:", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
 

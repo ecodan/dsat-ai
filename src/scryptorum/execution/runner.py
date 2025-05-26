@@ -3,6 +3,7 @@ Execution engine for running experiments.
 """
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Type
@@ -17,6 +18,15 @@ class Runner:
 
     def __init__(self, project_root: Path):
         self.project_root = Path(project_root)
+
+    def _get_diagnostic_info(self) -> str:
+        """Get diagnostic information for debugging path issues."""
+        return (
+            f"Current working directory: {os.getcwd()}\n"
+            f"Python path: {sys.path}\n"
+            f"Project root: {self.project_root}\n"
+            f"sys.modules keys (first 10): {list(sys.modules.keys())[:10]}"
+        )
 
     def run_experiment(
         self,
@@ -50,7 +60,9 @@ class Runner:
 
                 # Execute the runnable
                 if runnable_class:
+                    print(f"Found runnable class: {runnable_class.__name__}")
                     runnable = runnable_class(experiment, run, config or {})
+                    print(f"Created runnable instance: {type(runnable)}")
                     self._execute_runnable(runnable)
                 else:
                     run._log_event("warning", {"message": "No runnable specified"})
@@ -98,62 +110,160 @@ class Runner:
 
     def _load_runnable_class(self, module_path: str) -> Type:
         """Dynamically load a runnable class from module path."""
+        # Add current working directory's src folder to Python path if it exists
+        cwd_src = Path.cwd() / "src"
+        if cwd_src.exists() and str(cwd_src) not in sys.path:
+            sys.path.insert(0, str(cwd_src))
+        
         try:
             # Handle different module path formats
-            if "." in module_path:
-                # Package.module format
-                module = importlib.import_module(module_path)
-                # Look for a class that has a 'run' method
-                for attr_name in dir(module):
-                    attr = getattr(module, attr_name)
-                    if (
-                        isinstance(attr, type)
-                        and hasattr(attr, "run")
-                        and callable(getattr(attr, "run"))
-                    ):
-                        return attr
-                raise ValueError(f"No runnable class found in {module_path}")
-            else:
+            if "/" in module_path or "\\" in module_path or module_path.endswith('.py'):
                 # File path format
                 module_file = Path(module_path)
                 if not module_file.exists():
-                    raise FileNotFoundError(f"Module file not found: {module_path}")
+                    diagnostic_info = self._get_diagnostic_info()
+                    raise FileNotFoundError(
+                        f"Module file not found: {module_path}\n"
+                        f"Resolved path: {module_file.resolve()}\n"
+                        f"{diagnostic_info}"
+                    )
 
                 spec = importlib.util.spec_from_file_location(
                     "runnable_module", module_file
                 )
                 if spec is None or spec.loader is None:
-                    raise ImportError(f"Could not load spec from {module_path}")
+                    diagnostic_info = self._get_diagnostic_info()
+                    raise ImportError(
+                        f"Could not load spec from {module_path}\n"
+                        f"Module file: {module_file}\n"
+                        f"Module file exists: {module_file.exists()}\n"
+                        f"{diagnostic_info}"
+                    )
 
                 module = importlib.util.module_from_spec(spec)
                 sys.modules["runnable_module"] = module
                 spec.loader.exec_module(module)
 
                 # Look for runnable class
+                found_classes = []
+                runnable_candidates = []
                 for attr_name in dir(module):
                     attr = getattr(module, attr_name)
-                    if (
-                        isinstance(attr, type)
-                        and hasattr(attr, "run")
-                        and callable(getattr(attr, "run"))
-                    ):
-                        return attr
+                    if isinstance(attr, type):
+                        found_classes.append(attr_name)
+                        if (hasattr(attr, "execute") and callable(getattr(attr, "execute"))) or (hasattr(attr, "run") and callable(getattr(attr, "run"))):
+                            print(f"Found runnable class: {attr_name}")
+                            # Skip BaseRunnable itself - we want concrete implementations
+                            if attr_name != "BaseRunnable":
+                                runnable_candidates.append(attr)
+                
+                # Return the first concrete runnable found
+                if runnable_candidates:
+                    return runnable_candidates[0]
 
-                raise ValueError(f"No runnable class found in {module_path}")
+                print(f"All classes in module: {found_classes}")
+                diagnostic_info = self._get_diagnostic_info()
+                available_attrs = [attr for attr in dir(module) if not attr.startswith('_')]
+                raise ValueError(
+                    f"No runnable class found in {module_path}\n"
+                    f"Available attributes: {available_attrs}\n"
+                    f"{diagnostic_info}"
+                )
+            elif "." in module_path:
+                # Package.module format
+                try:
+                    module = importlib.import_module(module_path)
+                except ImportError as e:
+                    diagnostic_info = self._get_diagnostic_info()
+                    raise ImportError(
+                        f"Failed to import module {module_path}: {e}\n"
+                        f"{diagnostic_info}"
+                    )
+                # Look for a class that has a 'run' method
+                found_classes = []
+                runnable_candidates = []
+                for attr_name in dir(module):
+                    attr = getattr(module, attr_name)
+                    if isinstance(attr, type):
+                        found_classes.append(attr_name)
+                        if (hasattr(attr, "execute") and callable(getattr(attr, "execute"))) or (hasattr(attr, "run") and callable(getattr(attr, "run"))):
+                            print(f"Found runnable class: {attr_name}")
+                            # Skip BaseRunnable itself - we want concrete implementations
+                            if attr_name != "BaseRunnable":
+                                runnable_candidates.append(attr)
+                
+                # Return the first concrete runnable found
+                if runnable_candidates:
+                    return runnable_candidates[0]
+                
+                print(f"All classes in module: {found_classes}")
+                diagnostic_info = self._get_diagnostic_info()
+                available_attrs = [attr for attr in dir(module) if not attr.startswith('_')]
+                raise ValueError(
+                    f"No runnable class found in {module_path}\n"
+                    f"Available attributes: {available_attrs}\n"
+                    f"{diagnostic_info}"
+                )
+            else:
+                # Simple module name format (no dots or paths)
+                try:
+                    module = importlib.import_module(module_path)
+                except ImportError as e:
+                    diagnostic_info = self._get_diagnostic_info()
+                    raise ImportError(
+                        f"Failed to import module {module_path}: {e}\n"
+                        f"{diagnostic_info}"
+                    )
+                # Look for a class that has a 'run' method
+                found_classes = []
+                runnable_candidates = []
+                for attr_name in dir(module):
+                    attr = getattr(module, attr_name)
+                    if isinstance(attr, type):
+                        found_classes.append(attr_name)
+                        if (hasattr(attr, "execute") and callable(getattr(attr, "execute"))) or (hasattr(attr, "run") and callable(getattr(attr, "run"))):
+                            print(f"Found runnable class: {attr_name}")
+                            # Skip BaseRunnable itself - we want concrete implementations
+                            if attr_name != "BaseRunnable":
+                                runnable_candidates.append(attr)
+                
+                # Return the first concrete runnable found
+                if runnable_candidates:
+                    return runnable_candidates[0]
+                    
+                print(f"All classes in module: {found_classes}")
+                diagnostic_info = self._get_diagnostic_info()
+                available_attrs = [attr for attr in dir(module) if not attr.startswith('_')]
+                raise ValueError(
+                    f"No runnable class found in {module_path}\n"
+                    f"Available attributes: {available_attrs}\n"
+                    f"{diagnostic_info}"
+                )
 
         except Exception as e:
             raise ImportError(f"Failed to load runnable from {module_path}: {e}")
 
     def _execute_runnable(self, runnable: Any) -> None:
         """Execute a runnable instance through its lifecycle."""
-        stages = ["prepare", "run", "score", "cleanup"]
+        stages = ["prepare", "execute", "score", "cleanup"]
+        print(f"Executing runnable with stages: {stages}")
 
+        last_exception = None
+        skip_score = False
+        
         for stage in stages:
+            # Skip score stage if execute failed
+            if stage == "score" and skip_score:
+                continue
+                
+            print(f"Checking stage '{stage}'...")
             if hasattr(runnable, stage):
                 method = getattr(runnable, stage)
                 if callable(method):
+                    print(f"Executing {stage}() method...")
                     try:
                         method()
+                        print(f"Completed {stage}() method")
                     except Exception as e:
                         # Log stage error but continue to cleanup
                         if hasattr(runnable, "run") and hasattr(
@@ -163,7 +273,16 @@ class Runner:
                         if stage == "cleanup":
                             # Don't re-raise cleanup errors
                             continue
-                        raise
+                        else:
+                            # Save the exception but continue to cleanup
+                            last_exception = e
+                            if stage == "execute":
+                                # Skip score stage after execute failure
+                                skip_score = True
+        
+        # Re-raise the last exception after cleanup has run
+        if last_exception:
+            raise last_exception
 
 
 class BaseRunnable:
@@ -178,9 +297,13 @@ class BaseRunnable:
         """Override to add preparation logic."""
         pass
 
-    def run(self) -> None:
+    def execute(self) -> None:
         """Override to add main execution logic."""
-        raise NotImplementedError("Subclasses must implement run()")
+        raise NotImplementedError("Subclasses must implement execute()")
+        
+    def run(self) -> None:
+        """Deprecated: Use execute() instead. Kept for backward compatibility."""
+        return self.execute()
 
     def score(self) -> None:
         """Override to add scoring/evaluation logic."""
