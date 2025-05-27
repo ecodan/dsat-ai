@@ -131,22 +131,22 @@ class TestRunnableExecution:
 
             def prepare(self):
                 self.prepare_called = True
-                self.run._log_event("prepare_completed", {"status": "success"})
+                self.run.log_event("prepare_completed", {"status": "success"})
 
                 # Log configuration
                 model = self.config.get("model", "default")
-                self.run._log_event("model_configured", {"model": model})
+                self.run.log_event("model_configured", {"model": model})
 
             def execute(self):
                 self.run_called = True
-                self.run._log_event("execution_started", {})
+                self.run.log_event("execution_started", {})
 
                 # Simulate some work
                 for i in range(3):
                     self.run.log_metric(f"iteration_{i}", 0.1 * i, "progress")
                     time.sleep(0.001)  # Small delay
 
-                self.run._log_event("execution_completed", {"iterations": 3})
+                self.run.log_event("execution_completed", {"iterations": 3})
 
             def score(self):
                 self.score_called = True
@@ -154,11 +154,11 @@ class TestRunnableExecution:
                 # Calculate final metrics
                 accuracy = 0.85
                 self.run.log_metric("final_accuracy", accuracy, "accuracy")
-                self.run._log_event("scoring_completed", {"accuracy": accuracy})
+                self.run.log_event("scoring_completed", {"accuracy": accuracy})
 
             def cleanup(self):
                 self.cleanup_called = True
-                self.run._log_event("cleanup_completed", {})
+                self.run.log_event("cleanup_completed", {})
 
         return TestRunnable
 
@@ -242,16 +242,16 @@ class TestRunnableExecution:
 
         class FailingRunnable(BaseRunnable):
             def prepare(self):
-                self.run._log_event("prepare_started", {})
+                self.run.log_event("prepare_started", {})
 
             def execute(self):
                 raise RuntimeError("Execution failed")
 
             def score(self):
-                self.run._log_event("score_called", {})
+                self.run.log_event("score_called", {})
 
             def cleanup(self):
-                self.run._log_event("cleanup_called", {})
+                self.run.log_event("cleanup_called", {})
 
         runner = Runner(test_project_root)
 
@@ -277,7 +277,7 @@ class TestRunnableExecution:
 
         class CleanupFailingRunnable(BaseRunnable):
             def execute(self):
-                self.run._log_event("run_completed", {})
+                self.run.log_event("run_completed", {})
 
             def cleanup(self):
                 raise Exception("Cleanup failed")
@@ -444,7 +444,7 @@ class TestRunnerIntegration:
             def prepare(self):
                 # Setup model configuration
                 model_config = self.config.get("model", {})
-                self.run._log_event("model_setup", model_config)
+                self.run.log_event("model_setup", model_config)
 
                 # Log initial timing
                 self.run.log_timing("setup", 50.0)
@@ -487,12 +487,12 @@ class TestRunnerIntegration:
             "complete_test",
             runnable_class=CompleteRunnable,
             run_type=RunType.MILESTONE,
-            run_id="complete_v1.0",
+            run_id="complete_v1",
             config=config,
         )
 
         # Verify all logs were created correctly
-        assert run.run_id == "complete_v1.0"
+        assert run.run_id == "complete_v1"
 
         # Check metrics
         metric_entries = verify_jsonl_file(run.metrics_file)

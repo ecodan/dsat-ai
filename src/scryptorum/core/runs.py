@@ -79,7 +79,7 @@ class Run:
             self.prompts_snapshot_dir = self.run_dir / "prompts"
 
         # Initialize with run metadata
-        self._log_event(
+        self.log_event(
             "run_started",
             {
                 "run_id": self.run_id,
@@ -96,7 +96,7 @@ class Run:
         unique_suffix = uuid.uuid4().hex[:4]
         return f"ms-{timestamp}-{unique_suffix}"
 
-    def _log_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def log_event(self, event_type: str, data: Dict[str, Any]) -> None:
         """Thread-safe event logging."""
         with self._lock:
             event = {
@@ -131,7 +131,7 @@ class Run:
                     + "\n"
                 )
 
-        self._log_event("metric_logged", metric_data)
+        self.log_event("metric_logged", metric_data)
 
     def log_timing(self, operation: str, duration_ms: float, **metadata) -> None:
         """Log timing information."""
@@ -150,7 +150,7 @@ class Run:
                     + "\n"
                 )
 
-        self._log_event("timing_logged", timing_data)
+        self.log_event("timing_logged", timing_data)
 
     def log_llm_call(
         self,
@@ -168,14 +168,14 @@ class Run:
             "duration_ms": duration_ms,
             **metadata,
         }
-        self._log_event("llm_call", llm_data)
+        self.log_event("llm_call", llm_data)
 
     def finish(self) -> None:
         """Mark run as completed."""
         self.end_time = datetime.now()
         duration = (self.end_time - self.start_time).total_seconds()
 
-        self._log_event(
+        self.log_event(
             "run_finished",
             {"end_time": self.end_time.isoformat(), "duration_seconds": duration},
         )
@@ -184,7 +184,7 @@ class Run:
         """Preserve run artifacts (behavior varies by run type)."""
         if self.run_type == RunType.TRIAL:
             # For trial runs, only log artifact metadata
-            self._log_event(
+            self.log_event(
                 "artifacts_logged",
                 {
                     "artifact_count": len(artifacts),
@@ -203,11 +203,11 @@ class Run:
                         json.dump(artifact, f, indent=2, default=str)
                     preserved[name] = str(artifact_path)
                 except Exception as e:
-                    self._log_event(
+                    self.log_event(
                         "artifact_save_error", {"artifact_name": name, "error": str(e)}
                     )
 
-            self._log_event(
+            self.log_event(
                 "artifacts_preserved",
                 {"preserved_artifacts": preserved, "artifact_count": len(preserved)},
             )
@@ -215,7 +215,7 @@ class Run:
     def snapshot_code(self, source_paths: List[Path]) -> None:
         """Create code snapshot for reproducibility (milestone runs only)."""
         if self.run_type != RunType.MILESTONE:
-            self._log_event("code_snapshot_skipped", {"reason": "trial_run_type"})
+            self.log_event("code_snapshot_skipped", {"reason": "trial_run_type"})
             return
 
         import shutil
@@ -231,7 +231,7 @@ class Run:
                         shutil.rmtree(dest)
                     shutil.copytree(source_path, dest)
 
-        self._log_event(
+        self.log_event(
             "code_snapshot_created",
             {
                 "snapshot_path": str(self.code_snapshot_dir),
@@ -242,11 +242,11 @@ class Run:
     def snapshot_prompts(self, prompts_dir: Path) -> None:
         """Create prompts snapshot for reproducibility (milestone runs only)."""
         if self.run_type != RunType.MILESTONE:
-            self._log_event("prompts_snapshot_skipped", {"reason": "trial_run_type"})
+            self.log_event("prompts_snapshot_skipped", {"reason": "trial_run_type"})
             return
 
         if not prompts_dir.exists():
-            self._log_event(
+            self.log_event(
                 "prompts_snapshot_skipped",
                 {"reason": "prompts_dir_not_found", "prompts_dir": str(prompts_dir)},
             )
@@ -261,7 +261,7 @@ class Run:
             shutil.copy2(prompt_file, dest_file)
             copied_files.append(prompt_file.name)
 
-        self._log_event(
+        self.log_event(
             "prompts_snapshot_created",
             {
                 "snapshot_path": str(self.prompts_snapshot_dir),

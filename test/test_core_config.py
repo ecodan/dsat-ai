@@ -26,7 +26,7 @@ class TestAgentConfig:
             llm_model_name="gpt-4",
             llm_meta={"temperature": 0.7, "max_tokens": 1000},
             prompt_name="test_prompt",
-            prompt_version="v1.0",
+            prompt_version="v1",
             custom_configs={"retry_attempts": 3},
         )
 
@@ -35,7 +35,7 @@ class TestAgentConfig:
         assert config.llm_model_name == "gpt-4"
         assert config.llm_meta["temperature"] == 0.7
         assert config.prompt_name == "test_prompt"
-        assert config.prompt_version == "v1.0"
+        assert config.prompt_version == "v1"
         assert config.custom_configs["retry_attempts"] == 3
 
     def test_agent_config_to_dict(self):
@@ -46,7 +46,7 @@ class TestAgentConfig:
             llm_model_name="claude-3-sonnet",
             llm_meta={"temperature": 0.5},
             prompt_name="conversation_prompt",
-            prompt_version="v2.1",
+            prompt_version="v2",
             custom_configs={"logging": True},
         )
 
@@ -58,7 +58,7 @@ class TestAgentConfig:
             "llm_model_name": "claude-3-sonnet",
             "llm_meta": {"temperature": 0.5},
             "prompt_name": "conversation_prompt",
-            "prompt_version": "v2.1",
+            "prompt_version": "v2",
             "custom_configs": {"logging": True},
         }
 
@@ -72,7 +72,7 @@ class TestAgentConfig:
             "llm_model_name": "gemini-pro",
             "llm_meta": {"temperature": 0.3, "top_p": 0.9},
             "prompt_name": "analysis_prompt",
-            "prompt_version": "v1.5",
+            "prompt_version": "v2",
             "custom_configs": {"cache_responses": True, "retry_attempts": 5},
         }
 
@@ -84,7 +84,7 @@ class TestAgentConfig:
         assert config.llm_meta["temperature"] == 0.3
         assert config.llm_meta["top_p"] == 0.9
         assert config.prompt_name == "analysis_prompt"
-        assert config.prompt_version == "v1.5"
+        assert config.prompt_version == "v2"
         assert config.custom_configs["cache_responses"] is True
         assert config.custom_configs["retry_attempts"] == 5
 
@@ -100,7 +100,7 @@ class TestAgentConfig:
                 llm_model_name="llama-2-70b",
                 llm_meta={"temperature": 0.8, "max_tokens": 2000},
                 prompt_name="creative_prompt",
-                prompt_version="v3.0",
+                prompt_version="v3",
                 custom_configs={"streaming": True},
             )
 
@@ -139,7 +139,7 @@ class TestCreateDefaultAgentConfig:
         assert config.llm_family == "openai"
         assert config.llm_model_name == "gpt-4"
         assert config.prompt_name == "default_prompt"
-        assert config.prompt_version == "v1.0"
+        assert config.prompt_version == "v1"
 
         # Check llm_meta structure
         assert "provider" in config.llm_meta
@@ -213,7 +213,7 @@ class TestConfigManager:
                 llm_model_name="claude-3-haiku",
                 llm_meta={"temperature": 0.2},
                 prompt_name="specialized_prompt",
-                prompt_version="v2.0",
+                prompt_version="v2",
                 custom_configs={"fast_mode": True},
             )
 
@@ -226,7 +226,7 @@ class TestConfigManager:
             assert data["agent_name"] == "custom_agent"
             assert data["llm_family"] == "anthropic"
             assert data["prompt_name"] == "specialized_prompt"
-            assert data["prompt_version"] == "v2.0"
+            assert data["prompt_version"] == "v2"
 
     def test_load_agent_config(self):
         """Test loading existing agent configuration."""
@@ -241,7 +241,7 @@ class TestConfigManager:
                 llm_model_name="gemini-pro",
                 llm_meta={"temperature": 0.6},
                 prompt_name="test_prompt",
-                prompt_version="v1.2",
+                prompt_version="v2",
                 custom_configs={"debug": True},
             )
 
@@ -374,7 +374,7 @@ class TestIntegrationWithExperiment:
             assert default_config is not None
             assert hasattr(default_config, "prompt_name")
             assert default_config.prompt_name == "default_prompt"
-            assert default_config.prompt_version == "v1.0"
+            assert default_config.prompt_version == "v1"
 
     def test_experiment_create_custom_config_with_prompt_name(self):
         """Test creating custom config through experiment with prompt_name override."""
@@ -388,7 +388,7 @@ class TestIntegrationWithExperiment:
                 "custom_agent",
                 llm_family="anthropic",
                 prompt_name="custom_analysis_prompt",
-                prompt_version="v2.5",
+                prompt_version="v3",
             )
 
             assert config_file.exists()
@@ -398,4 +398,4 @@ class TestIntegrationWithExperiment:
             assert custom_config.agent_name == "custom_agent"
             assert custom_config.llm_family == "anthropic"
             assert custom_config.prompt_name == "custom_analysis_prompt"
-            assert custom_config.prompt_version == "v2.5"
+            assert custom_config.prompt_version == "v3"

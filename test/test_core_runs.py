@@ -161,7 +161,7 @@ class TestRunLogging:
             "classification",
             dataset_size=1000,
             error_count=50,
-            model_version="v1.2",
+            model_version="v1",
         )
 
         metric_entries = verify_jsonl_file(trial_run.metrics_file, expected_entries=1)
@@ -169,7 +169,7 @@ class TestRunLogging:
 
         assert entry["dataset_size"] == 1000
         assert entry["error_count"] == 50
-        assert entry["model_version"] == "v1.2"
+        assert entry["model_version"] == "v1"
 
     def test_log_timing_with_metadata(self, trial_run: Run):
         """Test timing logging with additional metadata."""
@@ -406,7 +406,7 @@ class TestThreadSafety:
 
         def log_events(thread_id):
             for i in range(5):
-                trial_run._log_event(f"test_event_{thread_id}", {"iteration": i})
+                trial_run.log_event(f"test_event_{thread_id}", {"iteration": i})
 
         # Run concurrent logging
         with ThreadPoolExecutor(max_workers=3) as executor:

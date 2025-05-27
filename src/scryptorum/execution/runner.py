@@ -65,13 +65,13 @@ class Runner:
                     print(f"Created runnable instance: {type(runnable)}")
                     self._execute_runnable(runnable)
                 else:
-                    run._log_event("warning", {"message": "No runnable specified"})
+                    run.log_event("warning", {"message": "No runnable specified"})
 
                 run.finish()
                 return run
 
         except Exception as e:
-            run._log_event("execution_error", {"error": str(e)})
+            run.log_event("execution_error", {"error": str(e)})
             run.finish()
             raise
 
@@ -104,7 +104,7 @@ class Runner:
                 return result
 
         except Exception as e:
-            run._log_event("execution_error", {"error": str(e)})
+            run.log_event("execution_error", {"error": str(e)})
             run.finish()
             raise
 
@@ -269,7 +269,7 @@ class Runner:
                         if hasattr(runnable, "run") and hasattr(
                             runnable.run, "_log_event"
                         ):
-                            runnable.run._log_event(f"{stage}_error", {"error": str(e)})
+                            runnable.run.log_event(f"{stage}_error", {"error": str(e)})
                         if stage == "cleanup":
                             # Don't re-raise cleanup errors
                             continue

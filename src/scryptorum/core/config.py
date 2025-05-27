@@ -59,7 +59,7 @@ def create_default_agent_config(agent_name: str) -> AgentConfig:
             "timeout": 30,
         },
         prompt_name="default_prompt",
-        prompt_version="v1.0",
+        prompt_version="v1",
         custom_configs={
             "retry_attempts": 3,
             "rate_limit_rpm": 60,

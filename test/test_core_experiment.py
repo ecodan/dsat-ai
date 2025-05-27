@@ -114,7 +114,7 @@ class TestExperiment:
 
     def test_create_milestone_run_with_custom_id(self, test_experiment: Experiment):
         """Test milestone run creation with custom ID."""
-        custom_id = "experiment_v1.0"
+        custom_id = "experiment_v1"
         run = test_experiment.create_run(RunType.MILESTONE, custom_id)
 
         assert run.run_id == custom_id

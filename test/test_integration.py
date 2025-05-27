@@ -142,7 +142,7 @@ class TestEndToEndScenarios:
                 self.model_name = self.config.get("model", "bert-base")
                 self.batch_size = self.config.get("batch_size", 16)
 
-                self.run._log_event(
+                self.run.log_event(
                     "experiment_config",
                     {"model": self.model_name, "batch_size": self.batch_size},
                 )
@@ -208,10 +208,10 @@ class TestEndToEndScenarios:
 
             def cleanup(self):
                 """Clean up resources."""
-                self.run._log_event("cleanup_started", {})
+                self.run.log_event("cleanup_started", {})
                 # Simulate cleanup
                 time.sleep(0.005)
-                self.run._log_event("cleanup_completed", {})
+                self.run.log_event("cleanup_completed", {})
 
             def _load_dataset(self):
                 """Load classification dataset."""
@@ -264,13 +264,13 @@ class TestEndToEndScenarios:
             "text_classification",
             runnable_class=TextClassificationRunnable,
             run_type=RunType.MILESTONE,
-            run_id="classification_v2.1",
+            run_id="classification_v2",
             config=config,
         )
 
         # Verify experiment structure
         exp_path = test_project_root / "experiments" / "text_classification"
-        run_path = exp_path / "runs" / "classification_v2.1"
+        run_path = exp_path / "runs" / "classification_v2"
         assert run_path.exists()
         assert (run_path / "artifacts").exists()
         assert (run_path / "code_snapshot").exists()
@@ -322,7 +322,7 @@ class TestEndToEndScenarios:
             run = get_current_run()
 
             # Manual event logging
-            run._log_event("experiment_phase", {"phase": "data_preparation"})
+            run.log_event("experiment_phase", {"phase": "data_preparation"})
 
             # Use decorators for some operations
             data = load_data_with_timer()
@@ -455,7 +455,7 @@ class TestErrorHandlingAndRecovery:
 
         class PartiallyFailingRunnable(BaseRunnable):
             def prepare(self):
-                self.run._log_event("prepare_success", {})
+                self.run.log_event("prepare_success", {})
 
             def execute(self):
                 # Simulate partial failures
@@ -474,11 +474,11 @@ class TestErrorHandlingAndRecovery:
 
                     except ConnectionError as e:
                         # Log the error but continue
-                        self.run._log_event(
+                        self.run.log_event(
                             "iteration_error", {"iteration": i, "error": str(e)}
                         )
 
-                self.run._log_event("run_completed_with_errors", {"total_errors": 1})
+                self.run.log_event("run_completed_with_errors", {"total_errors": 1})
 
             def score(self):
                 # Calculate metrics based on successful iterations
@@ -486,7 +486,7 @@ class TestErrorHandlingAndRecovery:
                 self.run.log_metric("success_rate", success_rate, "rate")
 
             def cleanup(self):
-                self.run._log_event("cleanup_success", {})
+                self.run.log_event("cleanup_success", {})
 
         runner = Runner(test_project_root)
 

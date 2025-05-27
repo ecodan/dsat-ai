@@ -90,7 +90,7 @@ def experiment(name: Optional[str] = None):
                     run.finish()
                     return result
             except Exception as e:
-                run._log_event("experiment_error", {"error": str(e)})
+                run.log_event("experiment_error", {"error": str(e)})
                 run.finish()
                 raise
 
@@ -265,7 +265,7 @@ def batch_processor(batch_size: int = 10, parallel: bool = False):
             total_items = len(list(items)) if hasattr(items, "__len__") else None
 
             if _current_run is not None:
-                _current_run._log_event(
+                _current_run.log_event(
                     "batch_processing_started",
                     {
                         "function": func.__name__,
@@ -289,7 +289,7 @@ def batch_processor(batch_size: int = 10, parallel: bool = False):
                 results.extend(batch_results)
 
                 if _current_run is not None:
-                    _current_run._log_event(
+                    _current_run.log_event(
                         "batch_completed",
                         {
                             "batch_start": i,
@@ -299,7 +299,7 @@ def batch_processor(batch_size: int = 10, parallel: bool = False):
                     )
 
             if _current_run is not None:
-                _current_run._log_event(
+                _current_run.log_event(
                     "batch_processing_finished", {"total_results": len(results)}
                 )
 

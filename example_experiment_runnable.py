@@ -39,7 +39,7 @@ class SentimentAnalysisRunnable(BaseRunnable):
         
         # Log preparation start
         self.run.log_event("preparation_started", {
-            "experiment": self.experiment.name,
+            "experiment": self.experiment.experiment_name,
             "config": self.config
         })
         
@@ -54,7 +54,7 @@ class SentimentAnalysisRunnable(BaseRunnable):
         
         print(f"Prepared {len(self.data)} data points in {prep_duration:.3f}s")
     
-    def run(self) -> None:
+    def execute(self) -> None:
         """Main experiment execution."""
         print("Running sentiment analysis...")
         
@@ -157,8 +157,8 @@ class SentimentAnalysisRunnable(BaseRunnable):
         duration = time.time() - start_time
         self.run.log_llm_call(
             model="gpt-4",
-            prompt=prompt,
-            response=response,
+            input_data=prompt,
+            output_data=response,
             duration_ms=duration * 1000
         )
         
@@ -189,7 +189,7 @@ def main():
     try:
         runnable = SentimentAnalysisRunnable(experiment, run, {})
         runnable.prepare()
-        runnable.run()
+        runnable.execute()
         runnable.score()
         runnable.cleanup()
     finally:
