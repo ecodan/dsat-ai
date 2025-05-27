@@ -11,7 +11,7 @@ from typing import Any, Callable, Dict, Optional, Type
 from ..core.decorators import run_context
 from ..core.experiment import Experiment
 from ..core.runs import Run, RunType
-from ..core.logging_utils import log_info, log_debug
+# Removed logging_utils import - now use logger directly from runs
 
 
 class Runner:
@@ -61,10 +61,10 @@ class Runner:
 
                 # Execute the runnable
                 if runnable_class:
-                    log_info(f"Found runnable class: {runnable_class.__name__}")
+                    run.logger.info(f"Found runnable class: {runnable_class.__name__}")
                     runnable = runnable_class(experiment, run, config or {})
-                    log_debug(f"Created runnable instance: {type(runnable)}")
-                    self._execute_runnable(runnable)
+                    run.logger.debug(f"Created runnable instance: {type(runnable)}")
+                    self._execute_runnable(runnable, run)
                 else:
                     run.log_event("warning", {"message": "No runnable specified"})
 
@@ -153,7 +153,7 @@ class Runner:
                     if isinstance(attr, type):
                         found_classes.append(attr_name)
                         if (hasattr(attr, "execute") and callable(getattr(attr, "execute"))) or (hasattr(attr, "run") and callable(getattr(attr, "run"))):
-                            log_debug(f"Found runnable class: {attr_name}")
+                            # Found a runnable class (debug)
                             # Skip BaseRunnable itself - we want concrete implementations
                             if attr_name != "BaseRunnable":
                                 runnable_candidates.append(attr)
@@ -162,12 +162,13 @@ class Runner:
                 if runnable_candidates:
                     return runnable_candidates[0]
 
-                log_debug(f"All classes in module: {found_classes}")
+                # All classes in module (debug): {found_classes}
                 diagnostic_info = self._get_diagnostic_info()
                 available_attrs = [attr for attr in dir(module) if not attr.startswith('_')]
                 raise ValueError(
                     f"No runnable class found in {module_path}\n"
                     f"Available attributes: {available_attrs}\n"
+                    f"All classes: {found_classes}\n"
                     f"{diagnostic_info}"
                 )
             elif "." in module_path:
@@ -188,7 +189,7 @@ class Runner:
                     if isinstance(attr, type):
                         found_classes.append(attr_name)
                         if (hasattr(attr, "execute") and callable(getattr(attr, "execute"))) or (hasattr(attr, "run") and callable(getattr(attr, "run"))):
-                            log_debug(f"Found runnable class: {attr_name}")
+                            # Found a runnable class (debug)
                             # Skip BaseRunnable itself - we want concrete implementations
                             if attr_name != "BaseRunnable":
                                 runnable_candidates.append(attr)
@@ -197,12 +198,13 @@ class Runner:
                 if runnable_candidates:
                     return runnable_candidates[0]
                 
-                log_debug(f"All classes in module: {found_classes}")
+                # All classes in module (debug): {found_classes}
                 diagnostic_info = self._get_diagnostic_info()
                 available_attrs = [attr for attr in dir(module) if not attr.startswith('_')]
                 raise ValueError(
                     f"No runnable class found in {module_path}\n"
                     f"Available attributes: {available_attrs}\n"
+                    f"All classes: {found_classes}\n"
                     f"{diagnostic_info}"
                 )
             else:
@@ -223,7 +225,7 @@ class Runner:
                     if isinstance(attr, type):
                         found_classes.append(attr_name)
                         if (hasattr(attr, "execute") and callable(getattr(attr, "execute"))) or (hasattr(attr, "run") and callable(getattr(attr, "run"))):
-                            log_debug(f"Found runnable class: {attr_name}")
+                            # Found a runnable class (debug)
                             # Skip BaseRunnable itself - we want concrete implementations
                             if attr_name != "BaseRunnable":
                                 runnable_candidates.append(attr)
@@ -232,22 +234,23 @@ class Runner:
                 if runnable_candidates:
                     return runnable_candidates[0]
                     
-                log_debug(f"All classes in module: {found_classes}")
+                # All classes in module (debug): {found_classes}
                 diagnostic_info = self._get_diagnostic_info()
                 available_attrs = [attr for attr in dir(module) if not attr.startswith('_')]
                 raise ValueError(
                     f"No runnable class found in {module_path}\n"
                     f"Available attributes: {available_attrs}\n"
+                    f"All classes: {found_classes}\n"
                     f"{diagnostic_info}"
                 )
 
         except Exception as e:
             raise ImportError(f"Failed to load runnable from {module_path}: {e}")
 
-    def _execute_runnable(self, runnable: Any) -> None:
+    def _execute_runnable(self, runnable: Any, run: Run) -> None:
         """Execute a runnable instance through its lifecycle."""
         stages = ["prepare", "execute", "score", "cleanup"]
-        log_info(f"Executing runnable with stages: {stages}")
+        run.logger.info(f"Executing runnable with stages: {stages}")
 
         last_exception = None
         skip_score = False
@@ -257,14 +260,14 @@ class Runner:
             if stage == "score" and skip_score:
                 continue
                 
-            log_debug(f"Checking stage '{stage}'...")
+            run.logger.debug(f"Checking stage '{stage}'...")
             if hasattr(runnable, stage):
                 method = getattr(runnable, stage)
                 if callable(method):
-                    log_info(f"Executing {stage}() method...")
+                    run.logger.info(f"Executing {stage}() method...")
                     try:
                         method()
-                        log_info(f"Completed {stage}() method")
+                        run.logger.info(f"Completed {stage}() method")
                     except Exception as e:
                         # Log stage error but continue to cleanup
                         if hasattr(runnable, "run") and hasattr(

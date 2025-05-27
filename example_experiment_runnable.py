@@ -35,7 +35,7 @@ class SentimentAnalysisRunnable(BaseRunnable):
     
     def prepare(self) -> None:
         """Prepare experimental data and setup."""
-        print("Preparing sentiment analysis experiment...")
+        self.run.logger.debug("Preparing sentiment analysis experiment...")
         
         # Log preparation start
         self.run.log_event("preparation_started", {
@@ -52,11 +52,11 @@ class SentimentAnalysisRunnable(BaseRunnable):
         self.run.log_timing("data_preparation", prep_duration)
         self.run.log_metric("data_size", len(self.data), "count")
         
-        print(f"Prepared {len(self.data)} data points in {prep_duration:.3f}s")
+        self.run.logger.debug(f"Prepared {len(self.data)} data points in {prep_duration:.3f}s")
     
     def execute(self) -> None:
         """Main experiment execution."""
-        print("Running sentiment analysis...")
+        self.run.logger.debug("Running sentiment analysis...")
         
         # Log run start
         self.run.log_event("main_execution_started", {
@@ -72,11 +72,11 @@ class SentimentAnalysisRunnable(BaseRunnable):
         self.run.log_timing("batch_processing", processing_duration)
         self.run.log_metric("results_count", len(self.results), "count")
         
-        print(f"Processed {len(self.results)} results in {processing_duration:.3f}s")
+        self.run.logger.debug(f"Processed {len(self.results)} results in {processing_duration:.3f}s")
     
     def score(self) -> None:
         """Evaluate results and calculate metrics."""
-        print("Evaluating results...")
+        self.run.logger.debug("Evaluating results...")
         
         # Calculate accuracy
         self.accuracy = self._evaluate_results(self.results)
@@ -92,11 +92,11 @@ class SentimentAnalysisRunnable(BaseRunnable):
             "throughput": self.throughput
         })
         
-        print(f"Final accuracy: {self.accuracy:.3f}, throughput: {self.throughput:.1f} items/sec")
+        self.run.logger.debug(f"Final accuracy: {self.accuracy:.3f}, throughput: {self.throughput:.1f} items/sec")
     
     def cleanup(self) -> None:
         """Clean up resources and log completion."""
-        print("Cleaning up experiment...")
+        self.run.logger.debug("Cleaning up experiment...")
         
         # Log final summary
         self.run.log_event("experiment_completed", {

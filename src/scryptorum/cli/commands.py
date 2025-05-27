@@ -9,7 +9,7 @@ from pathlib import Path
 
 from ..core.experiment import create_project, Experiment, resolve_project_root
 from ..core.project_config import ScryptorumConfig, find_scryptorum_project, resolve_experiments_dir
-from ..core.logging_utils import log_info
+# Removed logging_utils import - CLI commands use print for immediate feedback
 
 
 def _create_sample_experiment_file(current_dir: Path, project_name: str) -> None:
@@ -401,7 +401,7 @@ def run_experiment_command(args) -> None:
             print("Must specify either --module or --script", file=sys.stderr)
             sys.exit(1)
 
-        log_info(f"Experiment completed with run type: {run_type.value}")
+        print(f"Experiment completed with run type: {run_type.value}")
 
     except Exception as e:
         print(f"Error running experiment: {e}", file=sys.stderr)

@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 import uuid
 
-from .logging_utils import setup_experiment_logging, cleanup_experiment_logging
+from .logging_utils import create_experiment_logger, cleanup_logger
 
 
 class RunType(Enum):
@@ -45,8 +45,8 @@ class Run:
         # Initialize run directory and logging
         self._setup_run()
         
-        # Set up experiment logging
-        self.logger = setup_experiment_logging(self.run_dir)
+        # Create experiment logger
+        self.logger = create_experiment_logger(self.run_dir)
 
     def _setup_run(self) -> None:
         """Setup run directory and logging infrastructure."""
@@ -188,8 +188,8 @@ class Run:
         # Log completion message
         self.logger.info(f"Run {self.run_id} completed in {duration:.2f} seconds")
         
-        # Clean up logging context when run finishes
-        cleanup_experiment_logging()
+        # Clean up logging when run finishes
+        cleanup_logger(self.logger)
 
     def preserve_artifacts(self, artifacts: Dict[str, Any]) -> None:
         """Preserve run artifacts (behavior varies by run type)."""
