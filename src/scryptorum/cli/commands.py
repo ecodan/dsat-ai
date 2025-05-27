@@ -9,6 +9,7 @@ from pathlib import Path
 
 from ..core.experiment import create_project, Experiment, resolve_project_root
 from ..core.project_config import ScryptorumConfig, find_scryptorum_project, resolve_experiments_dir
+from ..core.logging_utils import log_info
 
 
 def _create_sample_experiment_file(current_dir: Path, project_name: str) -> None:
@@ -77,23 +78,23 @@ class SampleExperimentRunnable(BaseRunnable):
     
     def prepare(self):
         """Prepare experiment resources."""
-        self.run._log_event("preparation_started", {{}})
-        print("Preparing experiment...")
+        self.run.log_event("preparation_started", {{}})
+        self.run.logger.info("Preparing experiment...")
         
-    def run(self):
+    def execute(self):
         """Execute the main experiment."""
-        self.run._log_event("execution_started", {{}})
-        print("Running experiment...")
+        self.run.log_event("execution_started", {{}})
+        self.run.logger.info("Running experiment...")
         
     def score(self):
         """Evaluate experiment results."""
-        self.run._log_event("scoring_started", {{}})
-        print("Scoring results...")
+        self.run.log_event("scoring_started", {{}})
+        self.run.logger.info("Scoring results...")
         
     def cleanup(self):
         """Clean up experiment resources."""
-        self.run._log_event("cleanup_started", {{}})
-        print("Cleaning up...")
+        self.run.log_event("cleanup_started", {{}})
+        self.run.logger.info("Cleaning up...")
 
 
 if __name__ == "__main__":
@@ -102,7 +103,7 @@ if __name__ == "__main__":
     result = run_sample_experiment()
     print(f"Experiment completed with accuracy: {{result}}")
     
-    # Option 2: Run using Runner (uncomment to use)
+    # Option 2: Run using Runner (uses proper experiment logging)
     # from scryptorum.execution.runner import Runner
     # print("\\nRunning sample experiment with Runner...")
     # runner = Runner(".")
@@ -400,7 +401,7 @@ def run_experiment_command(args) -> None:
             print("Must specify either --module or --script", file=sys.stderr)
             sys.exit(1)
 
-        print(f"Experiment completed with run type: {run_type.value}")
+        log_info(f"Experiment completed with run type: {run_type.value}")
 
     except Exception as e:
         print(f"Error running experiment: {e}", file=sys.stderr)

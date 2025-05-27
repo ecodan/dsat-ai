@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Union
 from .runs import Run, RunType
 from .prompts import PromptManager
 from .config import ConfigManager, create_default_agent_config
+from .logging_utils import log_info
 
 
 class Experiment:
@@ -85,7 +86,7 @@ class Experiment:
             )
 
             # Log the creation
-            print(f"Created default agent config: {config_file}")
+            log_info(f"Created default agent config: {config_file}")
 
     def _create_sample_prompt(self) -> None:
         """Create a sample prompt file if no prompts exist."""
@@ -101,11 +102,12 @@ Please analyze the given data and provide insights based on the following contex
 - Task: [Describe your specific task here]
 - Data: [Your data will be provided here]
 
-Respond with clear, actionable insights and recommendations."""
+Respond with clear, actionable insights and recommendations.
+"""
             
             # Create the sample prompt file
             prompt_file = self.prompts.create_prompt("sample_prompt", sample_prompt_text)
-            print(f"Created sample prompt: {prompt_file}")
+            log_info(f"Created sample prompt: {prompt_file}")
 
     def create_agent_config(self, agent_name: str, **config_overrides) -> Path:
         """Create a new agent configuration with optional overrides."""
