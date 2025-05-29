@@ -327,30 +327,6 @@ scryptorum run my_experiment -s script.py  # Trial run
 scryptorum run my_experiment -s script.py --milestone  # Milestone run
 ```
 
-## Directory Structure
-```
-my_project/
-   project.json              # Project metadata
-   experiments/
-      sentiment_analysis/
-          experiment.json   # Experiment metadata
-          data/            # Experiment-specific data
-          config/          # Configuration files
-          runs/
-              trial_run/   # Trial runs (reset each time)
-                 run.jsonl
-                 metrics.jsonl
-                 timings.jsonl
-              run-abc123/  # Milestone runs (versioned)
-                  run.jsonl
-                  metrics.jsonl
-                  timings.jsonl
-                  artifacts/      # Preserved artifacts
-                  code_snapshot/  # Code versioning
-   data/                    # Project-wide data
-   artifacts/              # Project-wide artifacts
-```
-
 ## Available Decorators
 
 ### `@experiment(name="experiment_name")`
