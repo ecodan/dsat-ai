@@ -2,6 +2,7 @@
 
 ## Overview
 Scryptorum is a modern, annotation-driven framework for running and tracking LLM experiments. It simplifies development of LLM applications and agents by offering tools to manually or automatically track artifacts and results of experiment runs with minimal boilerplate.
+It is designed to work seamlessly with Python projects, allowing you to focus on your research while it handles experiment management, versioning, and logging.
 
 Key features include:
 * **Dual run types**: Lightweight trial runs (logs only) vs milestone runs (full versioning)
