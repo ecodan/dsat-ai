@@ -73,15 +73,15 @@ class Run:
         if self.run_type == RunType.MILESTONE:
             self.artifacts_dir = self.run_dir / "artifacts"
             self.code_snapshot_dir = self.run_dir / "code_snapshot"
-            self.prompts_snapshot_dir = self.run_dir / "prompts"
+            self.agent_configs_snapshot_dir = self.run_dir / "agent_configs"
             self.artifacts_dir.mkdir(exist_ok=True)
             self.code_snapshot_dir.mkdir(exist_ok=True)
-            self.prompts_snapshot_dir.mkdir(exist_ok=True)
+            self.agent_configs_snapshot_dir.mkdir(exist_ok=True)
         else:
             # Ensure these attributes exist for trial runs too (they just won't be used)
             self.artifacts_dir = self.run_dir / "artifacts"
             self.code_snapshot_dir = self.run_dir / "code_snapshot"
-            self.prompts_snapshot_dir = self.run_dir / "prompts"
+            self.agent_configs_snapshot_dir = self.run_dir / "agent_configs"
 
         # Initialize with run metadata
         self.log_event(
@@ -250,33 +250,33 @@ class Run:
             },
         )
 
-    def snapshot_prompts(self, prompts_dir: Path) -> None:
-        """Create prompts snapshot for reproducibility (milestone runs only)."""
+    def snapshot_agent_configs(self, config_dir: Path) -> None:
+        """Create agent configs snapshot for reproducibility (milestone runs only)."""
         if self.run_type != RunType.MILESTONE:
-            self.log_event("prompts_snapshot_skipped", {"reason": "trial_run_type"})
+            self.log_event("agent_configs_snapshot_skipped", {"reason": "trial_run_type"})
             return
 
-        if not prompts_dir.exists():
+        if not config_dir.exists():
             self.log_event(
-                "prompts_snapshot_skipped",
-                {"reason": "prompts_dir_not_found", "prompts_dir": str(prompts_dir)},
+                "agent_configs_snapshot_skipped",
+                {"reason": "config_dir_not_found", "config_dir": str(config_dir)},
             )
             return
 
         import shutil
 
-        # Copy all prompt TOML files
+        # Copy all agent config JSON files
         copied_files = []
-        for prompt_file in prompts_dir.glob("*.toml"):
-            dest_file = self.prompts_snapshot_dir / prompt_file.name
-            shutil.copy2(prompt_file, dest_file)
-            copied_files.append(prompt_file.name)
+        for config_file in config_dir.glob("*_config.json"):
+            dest_file = self.agent_configs_snapshot_dir / config_file.name
+            shutil.copy2(config_file, dest_file)
+            copied_files.append(config_file.name)
 
         self.log_event(
-            "prompts_snapshot_created",
+            "agent_configs_snapshot_created",
             {
-                "snapshot_path": str(self.prompts_snapshot_dir),
-                "source_dir": str(prompts_dir),
+                "snapshot_path": str(self.agent_configs_snapshot_dir),
+                "source_dir": str(config_dir),
                 "copied_files": copied_files,
                 "file_count": len(copied_files),
             },

@@ -8,8 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 from .runs import Run, RunType
-from agents import PromptManager
-from .config import ConfigManager, create_default_agent_config
+from .config import ConfigManager
 # Removed logging_utils import - now use logger directly from runs
 
 
@@ -24,17 +23,11 @@ class Experiment:
         # Ensure experiment directory structure exists
         self._setup_experiment()
 
-        # Initialize prompt manager
-        self.prompts = PromptManager(self.prompts_dir)
-
         # Initialize config manager
         self.config = ConfigManager(self.config_dir)
 
         # Create default configs after managers are initialized
         self._create_default_configs()
-        
-        # Create sample prompt if no prompts exist
-        self._create_sample_prompt()
 
     def _setup_experiment(self) -> None:
         """Create experiment directory structure."""
@@ -43,7 +36,6 @@ class Experiment:
             self.experiment_path / "runs",
             self.experiment_path / "data",
             self.experiment_path / "config",
-            self.experiment_path / "prompts",
         ]
 
         for directory in directories:
@@ -73,58 +65,13 @@ class Experiment:
             json.dump(metadata, f, indent=2)
 
     def _create_default_configs(self) -> None:
-        """Create default agent configuration files."""
-        # Create a default agent config if no configs exist
-        existing_configs = list(self.config_dir.glob("*_config.json"))
+        """Create default configuration files if needed."""
+        # Base class does nothing - subclasses can override
+        pass
 
-        if not existing_configs:
-            # Create a default agent config
-            default_agent_name = f"{self.experiment_name}_agent"
-            default_config = create_default_agent_config(default_agent_name)
-            config_file = self.config.create_agent_config(
-                default_agent_name, default_config
-            )
 
-            # Log the creation (fall back to print since no run context yet)
-            print(f"Created default agent config: {config_file}")
-
-    def _create_sample_prompt(self) -> None:
-        """Create a sample prompt file if no prompts exist."""
-        # Check if any prompts already exist
-        existing_prompts = self.prompts.list_prompts()
-        
-        if not existing_prompts:
-            # Create a simple sample prompt
-            sample_prompt_text = """You are a helpful AI assistant working on an experiment.
-
-Please analyze the given data and provide insights based on the following context:
-- Experiment name: {experiment_name}
-- Task: [Describe your specific task here]
-- Data: [Your data will be provided here]
-
-Respond with clear, actionable insights and recommendations.
-"""
-            
-            # Create the sample prompt file
-            prompt_file = self.prompts.create_prompt("sample_prompt", sample_prompt_text)
-            print(f"Created sample prompt: {prompt_file}")
-
-    def create_agent_config(self, agent_name: str, **config_overrides) -> Path:
-        """Create a new agent configuration with optional overrides."""
-        default_config = create_default_agent_config(agent_name)
-
-        # Apply any overrides
-        for key, value in config_overrides.items():
-            if hasattr(default_config, key):
-                setattr(default_config, key, value)
-            elif key in ["llm_meta", "custom_configs"]:
-                # For nested dictionaries, update them
-                if key == "llm_meta":
-                    default_config.llm_meta.update(value)
-                elif key == "custom_configs":
-                    default_config.custom_configs.update(value)
-
-        return self.config.create_agent_config(agent_name, default_config)
+    
+    
 
     def create_run(
         self, run_type: RunType = RunType.TRIAL, run_id: Optional[str] = None
@@ -132,9 +79,7 @@ Respond with clear, actionable insights and recommendations.
         """Create a run of the specified type."""
         run = Run(self.experiment_path, run_type, run_id)
 
-        # For milestone runs, automatically snapshot prompts
-        if run_type == RunType.MILESTONE:
-            run.snapshot_prompts(self.prompts_dir)
+        # Milestone runs can be extended by subclasses for additional snapshots
 
         return run
 
@@ -204,10 +149,6 @@ Respond with clear, actionable insights and recommendations.
         """Get experiment config directory."""
         return self.experiment_path / "config"
 
-    @property
-    def prompts_dir(self) -> Path:
-        """Get experiment prompts directory."""
-        return self.experiment_path / "prompts"
 
 
 def create_project(name: str, parent_path: Optional[Union[str, Path]] = None) -> Path:

@@ -11,6 +11,14 @@ from .prompts import PromptManager
 # Core exports that are always available
 __all__ = ["Agent", "AgentConfig", "PromptManager"]
 
+# Optional scryptorum integration - only available if scryptorum is installed
+try:
+    from .experiment import AgentExperiment, AgentRun
+    __all__.extend(["AgentExperiment", "AgentRun"])
+except ImportError:
+    AgentExperiment = None
+    AgentRun = None
+
 # Optional agent imports - only available if dependencies are installed
 try:
     from .anthropic_agent import ClaudeLLMAgent, ANTHROPIC_AVAILABLE

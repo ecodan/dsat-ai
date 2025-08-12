@@ -7,7 +7,6 @@ A lightweight, annotation-driven framework for running and tracking LLM experime
 from .core.experiment import Experiment
 from .core.runs import Run, RunType
 from .core.decorators import experiment, metric, timer, llm_call, set_default_run_type
-from agents import PromptManager
 from .execution.runner import Runner
 
 __version__ = "0.1.0"
@@ -20,6 +19,5 @@ __all__ = [
     "timer",
     "llm_call",
     "set_default_run_type",
-    "PromptManager",
     "Runner",
 ]

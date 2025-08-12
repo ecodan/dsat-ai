@@ -328,7 +328,8 @@ class TestEndToEndScenarios:
             data = load_data_with_timer()
 
             # Manual timing
-            with run.TimerContext(run, "manual_processing"):
+            from scryptorum.core.runs import TimerContext
+            with TimerContext(run, "manual_processing"):
                 processed_data = [x * 2 for x in data]
                 time.sleep(0.01)
 
@@ -544,3 +545,249 @@ class TestErrorHandlingAndRecovery:
         # Should still find the run despite corruption
         assert len(runs) == 1
         assert runs[0]["run_id"] == "trial_run"
+
+
+class TestAgentIntegration:
+    """Integration tests for agent-enhanced experiments."""
+
+    @pytest.mark.skipif(
+        not pytest.importorskip("agents", reason="agents module not available"),
+        reason="Agent tests require agents module"
+    )
+    def test_agent_experiment_vs_base_experiment(self, test_project_root: Path):
+        """Test that agent experiments provide enhanced functionality."""
+        from agents import AgentExperiment
+        
+        # Create both types of experiments
+        base_experiment = Experiment(test_project_root / "base", "base_test")
+        agent_experiment = AgentExperiment(test_project_root / "agent", "agent_test")
+
+        # Base experiment should work normally
+        base_run = base_experiment.create_run(RunType.TRIAL)
+        base_run.log_metric("base_metric", 0.5)
+        base_run.finish()
+
+        # Agent experiment should have enhanced features
+        agent_run = agent_experiment.create_run(RunType.TRIAL)
+        
+        # Should have agent-specific logging methods
+        assert hasattr(agent_run, 'log_agent_created')
+        assert hasattr(agent_run, 'log_agent_invoke')
+        
+        # Test enhanced logging
+        agent_run.log_agent_created("test_agent", {
+            "model_provider": "anthropic",
+            "model_family": "claude",
+            "prompt": "test:v1"
+        })
+        
+        agent_run.log_agent_invoke(
+            "test_agent",
+            "Hello",
+            response="Hi there!",
+            duration_ms=100.0
+        )
+        
+        agent_run.finish()
+
+        # Verify enhanced logging
+        log_entries = verify_jsonl_file(agent_run.log_file)
+        event_types = {e["event_type"] for e in log_entries}
+        
+        assert "agent_created" in event_types
+        assert "agent_invoke" in event_types
+
+    @pytest.mark.skipif(
+        not pytest.importorskip("agents", reason="agents module not available"),
+        reason="Agent tests require agents module"
+    )
+    def test_agent_experiment_decorators_integration(self, test_project_root: Path):
+        """Test agent experiment with scryptorum decorators."""
+        from agents import AgentExperiment
+        from unittest.mock import patch, MagicMock
+
+        # Mock agent creation to avoid dependencies
+        with patch('agents.experiment.Agent') as mock_agent_class:
+            mock_agent = MagicMock()
+            mock_agent_class.create.return_value = mock_agent
+            
+            # Use AgentExperiment for enhanced functionality
+            agent_experiment = AgentExperiment(test_project_root, "decorator_agent_test")
+            
+            # Create agent config
+            agent_experiment.create_agent_config(
+                "test_agent",
+                prompt="decorator_test:v1"
+            )
+
+            @experiment(name="agent_decorator_test")
+            def run_agent_experiment():
+                """Experiment using both agents and decorators."""
+                
+                # Get current run for agent operations
+                from scryptorum.core.decorators import get_current_run
+                run = get_current_run()
+                
+                # Create agent (this will be logged automatically)
+                agent = agent_experiment.create_agent("test_agent")
+                
+                # Use decorator for timing
+                process_with_agent()
+                
+                # Use decorator for metrics
+                result = calculate_agent_metric()
+                
+                return result
+
+            @timer("agent_processing")
+            def process_with_agent():
+                """Process something with the agent."""
+                time.sleep(0.01)
+                
+                # Mock agent usage - in real scenario would call agent.invoke()
+                from scryptorum.core.decorators import get_current_run
+                run = get_current_run()
+                
+                # Enhanced LLM logging with agent info
+                # Note: This would only work with AgentRun, need to check run type
+                if hasattr(run, 'log_llm_call') and 'agent_name' in run.log_llm_call.__code__.co_varnames:
+                    # Enhanced version for AgentRun
+                    run.log_llm_call(
+                        model="claude-3-5-haiku-latest",
+                        input_data="test input",
+                        output_data="test output",
+                        duration_ms=50.0,
+                        agent_name="test_agent",
+                        prompt_name="decorator_test",
+                        prompt_version="v1"
+                    )
+                else:
+                    # Basic version for regular Run
+                    run.log_llm_call(
+                        model="claude-3-5-haiku-latest",
+                        input_data="test input",
+                        output_data="test output",
+                        duration_ms=50.0
+                    )
+
+            @metric(name="agent_accuracy", metric_type="accuracy")
+            def calculate_agent_metric():
+                """Calculate a metric for agent performance."""
+                return 0.92
+
+            set_default_run_type(RunType.TRIAL)
+            result = run_agent_experiment(project_root=test_project_root)
+
+            # Verify experiment completed
+            assert result == 0.92
+
+            # Verify enhanced logging
+            exp_path = test_project_root / "experiments" / "agent_decorator_test"
+            trial_run_path = exp_path / "runs" / "trial_run"
+
+            log_entries = verify_jsonl_file(trial_run_path / "run.jsonl")
+            event_types = {e["event_type"] for e in log_entries}
+
+            # Should have both agent and standard events
+            assert "agent_created" in event_types
+            assert "llm_call" in event_types
+
+            # Check enhanced LLM call logging
+            llm_events = [e for e in log_entries if e["event_type"] == "llm_call"]
+            assert len(llm_events) == 1
+            
+            llm_event = llm_events[0]
+            assert llm_event.get("agent_name") == "test_agent"
+            assert llm_event.get("prompt_name") == "decorator_test"
+            assert llm_event.get("prompt_version") == "v1"
+
+    @pytest.mark.skipif(
+        not pytest.importorskip("agents", reason="agents module not available"),
+        reason="Agent tests require agents module"
+    )
+    def test_agent_experiment_milestone_run_snapshot(self, test_project_root: Path):
+        """Test that agent experiments snapshot configs in milestone runs."""
+        from agents import AgentExperiment
+
+        agent_experiment = AgentExperiment(test_project_root, "snapshot_test")
+        
+        # Create multiple agent configs
+        agent_experiment.create_agent_config("agent1", prompt="test1:v1")
+        agent_experiment.create_agent_config("agent2", prompt="test2:v2") 
+        agent_experiment.create_agent_config("agent3", prompt="test3:v3")
+
+        # Create milestone run
+        milestone_run = agent_experiment.create_run(RunType.MILESTONE, "snapshot_v1")
+
+        # Verify agent configs were snapshotted
+        snapshot_dir = milestone_run.run_dir / "agent_configs"
+        assert snapshot_dir.exists()
+
+        # Should have snapshotted all agent configs
+        config_files = list(snapshot_dir.glob("*_agent_config.json"))
+        config_names = [f.stem.replace("_agent_config", "") for f in config_files]
+        
+        assert "agent1" in config_names
+        assert "agent2" in config_names
+        assert "agent3" in config_names
+        assert "snapshot_test_agent" in config_names  # Default config
+
+        # Verify snapshot contents
+        agent1_config_file = snapshot_dir / "agent1_agent_config.json"
+        assert agent1_config_file.exists()
+        
+        with open(agent1_config_file) as f:
+            config_data = json.load(f)
+        
+        assert config_data["agent1"]["prompt"] == "test1:v1"
+
+        # Verify milestone run logged the snapshot
+        log_entries = verify_jsonl_file(milestone_run.log_file)
+        snapshot_events = [e for e in log_entries if e["event_type"] == "agent_configs_snapshot_created"]
+        assert len(snapshot_events) == 1
+        
+        snapshot_event = snapshot_events[0]
+        assert snapshot_event["file_count"] >= 4  # At least 4 configs
+
+    def test_mixed_experiment_types_in_project(self, test_project_root: Path):
+        """Test that base and agent experiments can coexist in same project."""
+        
+        # Create base experiment
+        base_experiment = Experiment(test_project_root, "base_experiment")
+        base_run = base_experiment.create_run(RunType.TRIAL)
+        base_run.log_metric("base_metric", 0.7)
+        base_run.finish()
+
+        # Try to import agent experiment - should work even if not available
+        try:
+            from agents import AgentExperiment
+            agent_available = True
+        except ImportError:
+            agent_available = False
+
+        if agent_available:
+            # Create agent experiment in same project
+            agent_experiment = AgentExperiment(test_project_root, "agent_experiment")
+            agent_run = agent_experiment.create_run(RunType.TRIAL)
+            agent_run.log_metric("agent_metric", 0.8)
+            agent_run.finish()
+
+            # Both should exist independently
+            base_experiments_dir = test_project_root / "experiments" / "base_experiment"
+            agent_experiments_dir = test_project_root / "experiments" / "agent_experiment"
+            
+            assert base_experiments_dir.exists()
+            assert agent_experiments_dir.exists()
+
+            # Base experiment metadata should not have agent info
+            base_metadata = verify_json_file(base_experiments_dir / "experiment.json")
+            assert "agents_enabled" not in base_metadata
+
+            # Agent experiment metadata should have agent info
+            agent_metadata = verify_json_file(agent_experiments_dir / "experiment.json")
+            assert agent_metadata.get("agents_enabled") is True
+
+        # Base experiment should work regardless
+        assert base_experiment.experiment_name == "base_experiment"
+        runs = base_experiment.list_runs()
+        assert len(runs) == 1

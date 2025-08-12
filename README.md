@@ -1,7 +1,14 @@
 # Dan's Simple Agent Toolkit (DSAT)
 
 ## Overview
-Scryptorum is a modern, annotation-driven framework for running and tracking LLM experiments. It simplifies development of LLM applications and agents by offering tools to manually or automatically track artifacts and results of experiment runs with minimal boilerplate.
+DSAT is a comprehensive Python toolkit for building LLM applications and running experiments. It consists of two main modules that work independently or together:
+
+- **agents**: Provides LLM agent abstractions, configuration management, and prompt versioning  
+- **scryptorum**: A modern, annotation-driven framework for running and tracking LLM experiments
+
+When used together, the agents module provides `AgentExperiment` and `AgentRun` classes that extend scryptorum's base classes with agent-specific capabilities, maintaining clean separation of concerns.
+
+The toolkit simplifies development of LLM applications by offering tools to manually or automatically track artifacts and results of experiment runs with minimal boilerplate.
 It is designed to work seamlessly with Python projects, allowing you to focus on your research while it handles experiment management, versioning, and logging.
 
 Key features include:
