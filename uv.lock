@@ -71,6 +71,40 @@ wheels = [
 ]
 
 [[package]]
+name = "dsat"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "pathlib" },
+    { name = "python-dotenv" },
+    { name = "tomlkit" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "black" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+server = [
+    { name = "fastapi" },
+    { name = "uvicorn" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "black", marker = "extra == 'dev'", specifier = ">=23.0.0" },
+    { name = "fastapi", marker = "extra == 'server'", specifier = ">=0.100.0" },
+    { name = "pathlib", specifier = ">=1.0.1" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
+    { name = "python-dotenv", specifier = ">=1.1.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
+    { name = "tomlkit", specifier = ">=0.12.0" },
+    { name = "uvicorn", marker = "extra == 'server'", specifier = ">=0.20.0" },
+]
+provides-extras = ["server", "dev"]
+
+[[package]]
 name = "fastapi"
 version = "0.115.12"
 source = { registry = "https://pypi.org/simple" }
@@ -270,40 +304,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/1b/d9/232e79459850b9f327e9f1dc9c047a2a38a6f9689e1ec30024841fc4416c/ruff-0.11.11-py3-none-win_amd64.whl", hash = "sha256:748b4bb245f11e91a04a4ff0f96e386711df0a30412b9fe0c74d5bdc0e4a531f", size = 11612562 },
     { url = "https://files.pythonhosted.org/packages/ce/eb/09c132cff3cc30b2e7244191dcce69437352d6d6709c0adf374f3e6f476e/ruff-0.11.11-py3-none-win_arm64.whl", hash = "sha256:6c51f136c0364ab1b774767aa8b86331bd8e9d414e2d107db7a2189f35ea1f7b", size = 10735951 },
 ]
-
-[[package]]
-name = "scryptorum"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "pathlib" },
-    { name = "python-dotenv" },
-    { name = "tomlkit" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "black" },
-    { name = "pytest" },
-    { name = "ruff" },
-]
-server = [
-    { name = "fastapi" },
-    { name = "uvicorn" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "black", marker = "extra == 'dev'", specifier = ">=23.0.0" },
-    { name = "fastapi", marker = "extra == 'server'", specifier = ">=0.100.0" },
-    { name = "pathlib", specifier = ">=1.0.1" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
-    { name = "python-dotenv", specifier = ">=1.1.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
-    { name = "tomlkit", specifier = ">=0.12.0" },
-    { name = "uvicorn", marker = "extra == 'server'", specifier = ">=0.20.0" },
-]
-provides-extras = ["server", "dev"]
 
 [[package]]
 name = "sniffio"

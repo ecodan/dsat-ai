@@ -1,4 +1,4 @@
-# Scryptorum
+# Dan's Simple Agent Toolkit (DSAT)
 
 ## Overview
 Scryptorum is a modern, annotation-driven framework for running and tracking LLM experiments. It simplifies development of LLM applications and agents by offering tools to manually or automatically track artifacts and results of experiment runs with minimal boilerplate.

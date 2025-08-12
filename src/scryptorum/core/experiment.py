@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 from .runs import Run, RunType
-from .prompts import PromptManager
+from agents import PromptManager
 from .config import ConfigManager, create_default_agent_config
 # Removed logging_utils import - now use logger directly from runs
 

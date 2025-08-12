@@ -2,44 +2,10 @@
 Configuration management for experiments and agents.
 """
 
-import json
 from pathlib import Path
 from typing import Dict, Any, Optional
-from dataclasses import dataclass, asdict
 
-
-@dataclass
-class AgentConfig:
-    """Agent configuration schema."""
-
-    agent_name: str
-    llm_family: str  # e.g., "openai", "anthropic", "google", "meta"
-    llm_model_name: str  # e.g., "gpt-4", "claude-3-sonnet", "gemini-pro"
-    llm_meta: Dict[str, Any]  # Provider-specific details, model params, etc.
-    prompt_name: str  # Name/identifier of the prompt template
-    prompt_version: str  # Prompt template version/identifier
-    custom_configs: Dict[str, Any]  # Additional custom configuration
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
-        return asdict(self)
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AgentConfig":
-        """Create from dictionary."""
-        return cls(**data)
-
-    def save_to_file(self, file_path: Path) -> None:
-        """Save config to JSON file."""
-        with open(file_path, "w") as f:
-            json.dump(self.to_dict(), f, indent=2)
-
-    @classmethod
-    def load_from_file(cls, file_path: Path) -> "AgentConfig":
-        """Load config from JSON file."""
-        with open(file_path, "r") as f:
-            data = json.load(f)
-        return cls.from_dict(data)
+from agents.agent import AgentConfig
 
 
 def create_default_agent_config(agent_name: str) -> AgentConfig:
