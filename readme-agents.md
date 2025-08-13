@@ -304,6 +304,213 @@ except Exception as e:
 - `FileNotFoundError`: Prompt file not found
 - API-specific exceptions for network/auth issues
 
+## LLM Call Logging
+
+The agents system includes comprehensive logging for LLM interactions, perfect for debugging, analysis, compliance, and monitoring.
+
+### Logging Modes
+
+The system supports multiple logging modes to fit different use cases:
+
+- **`standard`**: Logs through Python's logging system (host app controls routing)
+- **`jsonl_file`**: Writes detailed logs to dedicated JSONL files
+- **`callback`**: Calls custom function for each LLM interaction
+- **`disabled`**: No logging overhead (default)
+
+### Standard Python Logging (Recommended)
+
+This mode integrates seamlessly with host application logging:
+
+```python
+import logging
+
+# Host app sets up logging
+logging.basicConfig(level=logging.INFO, format='%(name)s: %(message)s')
+
+config = AgentConfig(
+    agent_name="chatbot",
+    model_provider="anthropic",
+    model_family="claude",
+    model_version="claude-3-5-haiku-latest",
+    prompt="assistant:v1",
+    provider_auth={"api_key": "your-api-key"},
+    custom_configs={
+        "logging": {
+            "enabled": True,
+            "mode": "standard",     # Default mode
+            "level": "standard"     # or "minimal"
+        }
+    }
+)
+
+agent = Agent.create(config)
+response = agent.invoke("Hello")  # Logged to 'dsat.agents.chatbot' logger
+```
+
+### JSONL File Logging
+
+For detailed analysis or compliance requirements:
+
+```python
+config = AgentConfig(
+    agent_name="research_agent",
+    # ... other config ...
+    custom_configs={
+        "logging": {
+            "enabled": True,
+            "mode": "jsonl_file",
+            "file_path": "./logs/llm_calls.jsonl",
+            "level": "standard"  # Full request/response content
+        }
+    }
+)
+
+agent = Agent.create(config)
+response = agent.invoke("Research quantum computing")
+# Detailed JSON log written to ./logs/llm_calls.jsonl
+```
+
+**Sample JSONL output:**
+```json
+{
+  "timestamp": "2025-08-12T19:30:18.287729",
+  "call_id": "b1bff515-901f-43f9-9eb0-6b2649e276a0",
+  "agent_name": "research_agent",
+  "model_provider": "anthropic",
+  "model_version": "claude-3-5-haiku-latest",
+  "duration_ms": 2345.67,
+  "request": {
+    "user_prompt": "Research quantum computing",
+    "system_prompt": "You are a helpful assistant.",
+    "model_parameters": {"temperature": 0.7, "max_tokens": 4096}
+  },
+  "response": {
+    "content": "Quantum computing is a revolutionary technology...",
+    "tokens_used": {"input": 25, "output": 150}
+  }
+}
+```
+
+### Environment Variable Configuration
+
+Configure logging without changing code:
+
+```bash
+export DSAT_AGENT_LOGGING_ENABLED=true
+export DSAT_AGENT_LOGGING_MODE=jsonl_file
+export DSAT_AGENT_LOGGING_FILE_PATH=./prod_logs/agents.jsonl
+export DSAT_AGENT_LOGGING_LEVEL=minimal
+```
+
+```python
+# No logging config needed - uses environment variables
+config = AgentConfig(
+    agent_name="prod_agent",
+    # ... other config ...
+    # Environment variables override any settings
+)
+```
+
+### Custom Callback Logging
+
+For advanced integrations (databases, monitoring systems):
+
+```python
+def custom_llm_logger(call_data):
+    """Custom logging function."""
+    # Write to database
+    db.insert_llm_call(call_data)
+    
+    # Send to monitoring
+    metrics.record_llm_duration(call_data['duration_ms'])
+
+config = AgentConfig(
+    agent_name="monitored_agent",
+    # ... other config ...
+    custom_configs={
+        "logging": {
+            "enabled": True,
+            "mode": "callback",
+            "callback": custom_llm_logger,
+            "level": "standard"
+        }
+    }
+)
+```
+
+### Logging Levels
+
+Control the amount of detail logged:
+
+- **`standard`**: Full request/response content, timing, tokens
+- **`minimal`**: Content lengths only (no actual text), timing, tokens
+
+```python
+# Minimal logging (for privacy/compliance)
+config = AgentConfig(
+    # ... other config ...
+    custom_configs={
+        "logging": {
+            "enabled": True,
+            "mode": "jsonl_file",
+            "file_path": "./logs/minimal.jsonl",
+            "level": "minimal"  # No prompt/response content
+        }
+    }
+)
+```
+
+### Host App Integration
+
+Perfect integration with sophisticated logging setups:
+
+```python
+import logging.config
+
+# Host app's logging configuration
+logging.config.dictConfig({
+    'version': 1,
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler'},
+        'agents': {
+            'class': 'logging.FileHandler',
+            'filename': 'agent_activity.log'
+        }
+    },
+    'loggers': {
+        'dsat.agents': {
+            'handlers': ['agents', 'console'],
+            'level': 'INFO',
+            'propagate': False
+        }
+    }
+})
+
+# Agent logs automatically go to agent_activity.log and console
+config = AgentConfig(
+    # ... other config ...
+    custom_configs={"logging": {"enabled": True, "mode": "standard"}}
+)
+```
+
+### Security and Privacy
+
+The logging system is designed with security in mind:
+
+- **API keys automatically filtered** from logs
+- **Configurable content filtering** for sensitive data
+- **Minimal mode** for privacy-sensitive applications
+- **Graceful error handling** - continues if logging fails
+
+### Environment Variables Reference
+
+| Variable | Description | Values |
+|----------|-------------|---------|
+| `DSAT_AGENT_LOGGING_ENABLED` | Enable/disable logging | `true`, `false` |
+| `DSAT_AGENT_LOGGING_MODE` | Logging output mode | `standard`, `jsonl_file`, `callback`, `disabled` |
+| `DSAT_AGENT_LOGGING_FILE_PATH` | Path for JSONL mode | File path string |
+| `DSAT_AGENT_LOGGING_LEVEL` | Detail level | `standard`, `minimal` |
+
 ## Advanced Usage
 
 ### Custom Logging
@@ -362,9 +569,13 @@ export PROMPTS_DIR="./custom_prompts"
 src/agents/
 ├── __init__.py
 ├── agent.py              # Base Agent class and AgentConfig
+├── agent_logger.py       # LLM call logging system
 ├── anthropic_agent.py    # Anthropic Claude implementation  
 ├── vertex_agent.py       # Google Vertex AI implementation
 └── prompts.py           # Prompt management system
+
+examples/
+└── agent_logging_examples.py  # Comprehensive logging examples
 
 test/
 ├── test_agents_base.py      # Base agent tests
@@ -408,6 +619,10 @@ The test suite includes 105+ tests covering:
 6. **Store credentials securely** using environment variables or secret management
 7. **Use factory methods** (`Agent.create()`) instead of direct instantiation
 8. **Cache agent instances** for repeated use to avoid re-initialization overhead
+9. **Enable LLM call logging** for production monitoring and debugging
+10. **Use `standard` logging mode** for seamless host app integration
+11. **Use `minimal` logging level** for privacy-sensitive applications
+12. **Configure logging via environment variables** for deployment flexibility
 
 ## License
 

@@ -7,9 +7,10 @@ including agent configuration, factory methods, and prompt versioning.
 
 from .agent import Agent, AgentConfig
 from .prompts import PromptManager
+from .agent_logger import AgentCallLogger, LoggingMode, CallTimer
 
 # Core exports that are always available
-__all__ = ["Agent", "AgentConfig", "PromptManager"]
+__all__ = ["Agent", "AgentConfig", "PromptManager", "AgentCallLogger", "LoggingMode", "CallTimer"]
 
 # Optional scryptorum integration - only available if scryptorum is installed
 try:

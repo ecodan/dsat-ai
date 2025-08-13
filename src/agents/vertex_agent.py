@@ -1,5 +1,6 @@
 import logging
 from .agent import Agent, AgentConfig
+from .agent_logger import CallTimer
 
 try:
     import vertexai
@@ -59,36 +60,77 @@ class GoogleVertexAIAgent(Agent):
         self.client = GenerativeModel(config.model_version)
 
     def invoke(self, user_prompt: str, system_prompt: str = None) -> str:
-        try:
-            # Use model parameters from config, with defaults
-            model_params = self.config.model_parameters or {}
-            temperature = model_params.get("temperature", 0.3)
-            max_output_tokens = model_params.get("max_output_tokens", 20000)
-            
-            # Use provided system prompt or load from prompt manager
-            if system_prompt is None:
-                system_prompt = self.get_system_prompt()
-            
-            # Combine system and user prompts for Vertex AI
-            if system_prompt:
-                full_prompt = f"{system_prompt}\n\n{user_prompt}"
-            else:
-                full_prompt = user_prompt
+        # Use model parameters from config, with defaults
+        model_params = self.config.model_parameters or {}
+        temperature = model_params.get("temperature", 0.3)
+        max_output_tokens = model_params.get("max_output_tokens", 20000)
+        
+        # Use provided system prompt or load from prompt manager
+        if system_prompt is None:
+            system_prompt = self.get_system_prompt()
+        
+        # Combine system and user prompts for Vertex AI
+        if system_prompt:
+            full_prompt = f"{system_prompt}\n\n{user_prompt}"
+        else:
+            full_prompt = user_prompt
+        
+        # Prepare request data for logging
+        request_data = {
+            "user_prompt": user_prompt,
+            "system_prompt": system_prompt,
+            "full_prompt": full_prompt,
+            "model_parameters": {
+                "temperature": temperature,
+                "max_output_tokens": max_output_tokens
+            }
+        }
 
-            response = self.client.generate_content(
-                full_prompt,
-                generation_config={
-                    "temperature": temperature,
-                    "max_output_tokens": max_output_tokens,
-                }
-            )
+        try:
+            with CallTimer() as timer:
+                response = self.client.generate_content(
+                    full_prompt,
+                    generation_config={
+                        "temperature": temperature,
+                        "max_output_tokens": max_output_tokens,
+                    }
+                )
 
             self.logger.debug(f"Vertex AI raw response: {response.text}")
             self.logger.debug(f".. response: {len(response.text)} bytes / {len(response.text.split())} words")
 
+            # Prepare response data for logging
+            response_data = {
+                "content": response.text,
+                "tokens_used": {
+                    "input": getattr(response.usage_metadata, 'prompt_token_count', None) if hasattr(response, 'usage_metadata') else None,
+                    "output": getattr(response.usage_metadata, 'candidates_token_count', None) if hasattr(response, 'usage_metadata') else None
+                }
+            }
+            
+            # Log the LLM call if logger is configured
+            if self.call_logger:
+                self.call_logger.log_llm_call(
+                    request_data=request_data,
+                    response_data=response_data,
+                    duration_ms=timer.duration_ms,
+                    model_provider=self.config.model_provider,
+                    model_version=self.config.model_version
+                )
+
             return response.text
 
         except Exception as e:
+            # Log errors
+            if self.call_logger:
+                self.call_logger.log_llm_call(
+                    request_data=request_data,
+                    response_data={"error": str(e), "error_type": type(e).__name__},
+                    duration_ms=timer.duration_ms if 'timer' in locals() else 0,
+                    model_provider=self.config.model_provider,
+                    model_version=self.config.model_version
+                )
+            
             self.logger.error(f"Vertex AI API error: {str(e)}")
             raise
 

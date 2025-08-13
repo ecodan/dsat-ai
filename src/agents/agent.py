@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from .vertex_agent import GoogleVertexAIAgent
 
 from .prompts import PromptManager
+from .agent_logger import AgentCallLogger
 
 
 @dataclass
@@ -53,7 +54,16 @@ class AgentConfig:
         Any authentication details needed for the host
         Examples: {"api_key": "sk-...", "project_id": "my-project"}
     custom_configs : dict, optional
-        Additional custom configuration for this agent
+        Additional custom configuration for this agent. Supports logging configuration:
+        {
+            "logging": {
+                "enabled": True,           # Enable/disable LLM call logging
+                "mode": "standard",        # "standard", "jsonl_file", "callback", "disabled"
+                "file_path": "path.jsonl", # Required for jsonl_file mode
+                "callback": func,          # Required for callback mode
+                "level": "standard"        # "minimal" or "standard" detail level
+            }
+        }
     tools : list, optional
         FUTURE: List of all MCP tools available to the agent
     
@@ -74,6 +84,23 @@ class AgentConfig:
     # Load from file
     configs = AgentConfig.load_from_file("agents.json")
     agent = Agent.create_from_config(configs["my_assistant"])
+    
+    # Enable LLM call logging to JSONL file
+    config_with_logging = AgentConfig.from_dict({
+        "agent_name": "my_assistant",
+        "model_provider": "anthropic", 
+        "model_family": "claude",
+        "model_version": "claude-3-5-haiku-latest",
+        "prompt": "assistant:v1",
+        "custom_configs": {
+            "logging": {
+                "enabled": True,
+                "mode": "jsonl_file",
+                "file_path": "./logs/agent_calls.jsonl",
+                "level": "standard"
+            }
+        }
+    })
     """
     agent_name: str
     model_provider: str
@@ -269,6 +296,9 @@ class Agent(metaclass=ABCMeta):
         
         self.prompt_manager = PromptManager(prompts_dir)
         self._system_prompt = None  # Cached system prompt
+        
+        # Initialize agent call logger
+        self.call_logger = self._setup_call_logger()
 
     def get_system_prompt(self) -> Optional[str]:
         """
@@ -293,6 +323,34 @@ class Agent(metaclass=ABCMeta):
             self.logger.warning(f"System prompt not found: {prompt_name}:{prompt_version or 'latest'}")
             
         return self._system_prompt
+
+    def _setup_call_logger(self) -> Optional[AgentCallLogger]:
+        """
+        Setup the agent call logger based on configuration and environment variables.
+        
+        :return: AgentCallLogger instance or None if logging disabled
+        """
+        # Check environment variables first (highest priority)
+        env_enabled = os.getenv("DSAT_AGENT_LOGGING_ENABLED", "").lower() in ("true", "1", "yes")
+        env_mode = os.getenv("DSAT_AGENT_LOGGING_MODE", "").lower()
+        env_file_path = os.getenv("DSAT_AGENT_LOGGING_FILE_PATH")
+        env_level = os.getenv("DSAT_AGENT_LOGGING_LEVEL", "").lower()
+        
+        # Get logging config from agent config
+        logging_config = self.config.custom_configs.get("logging", {})
+        
+        # Environment variables override config settings
+        if env_enabled:
+            logging_config = logging_config.copy()  # Don't modify original
+            logging_config["enabled"] = True
+            if env_mode:
+                logging_config["mode"] = env_mode
+            if env_file_path:
+                logging_config["file_path"] = env_file_path
+            if env_level:
+                logging_config["level"] = env_level
+        
+        return AgentCallLogger.create_from_config(self.config.agent_name, logging_config)
 
     @abstractmethod
     def invoke(self, user_prompt: str, system_prompt: Optional[str] = None) -> str:
