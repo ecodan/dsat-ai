@@ -421,5 +421,19 @@ class Agent(metaclass=ABCMeta):
             
             return GoogleVertexAIAgent(config=config, project_id=project_id, location=location, logger=logger, prompts_dir=prompts_dir)
 
+        elif provider == "ollama":
+            # Check if requests is available
+            try:
+                from .ollama_agent import OllamaAgent, REQUESTS_AVAILABLE
+                if not REQUESTS_AVAILABLE:
+                    raise ImportError("requests package is required for Ollama provider")
+            except ImportError:
+                raise ImportError("requests package is required for Ollama provider. Install with: pip install requests")
+            
+            # Get optional base URL
+            base_url = config.provider_auth.get("base_url", "http://localhost:11434")
+            
+            return OllamaAgent(config=config, base_url=base_url, logger=logger, prompts_dir=prompts_dir)
+
         else:
-            raise ValueError(f"Unsupported provider: {provider}. Supported providers: anthropic, google")
+            raise ValueError(f"Unsupported provider: {provider}. Supported providers: anthropic, google, ollama")

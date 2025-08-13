@@ -1,0 +1,42 @@
+{
+  "pirate": {
+    "model_provider": "ollama",
+    "model_family": "qwen",
+    "model_version": "qwen",
+    "prompt": "pirate:v1",
+    "model_parameters": {
+      "temperature": 0.7
+    },
+    "provider_auth": {
+      "base_url": "http://localhost:11434"
+    },
+    "custom_configs": {
+      "logging": {
+        "enabled": true,
+        "mode": "jsonl_file",
+        "file_path": "./demo/logs/pirate_calls.jsonl",
+        "level": "standard"
+      }
+    }
+  },
+  "shakespeare": {
+    "model_provider": "ollama",
+    "model_family": "qwen",
+    "model_version": "qwen",
+    "prompt": "shakespeare:v1",
+    "model_parameters": {
+      "temperature": 0.8
+    },
+    "provider_auth": {
+      "base_url": "http://localhost:11434"
+    },
+    "custom_configs": {
+      "logging": {
+        "enabled": true,
+        "mode": "jsonl_file",
+        "file_path": "./demo/logs/shakespeare_calls.jsonl",
+        "level": "standard"
+      }
+    }
+  }
+}
