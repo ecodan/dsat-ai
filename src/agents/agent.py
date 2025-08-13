@@ -7,8 +7,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, List, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .anthropic_agent import ClaudeLLMAgent
-    from .vertex_agent import GoogleVertexAIAgent
+    pass
 
 from .prompts import PromptManager
 from .agent_logger import AgentCallLogger
@@ -437,3 +436,35 @@ class Agent(metaclass=ABCMeta):
 
         else:
             raise ValueError(f"Unsupported provider: {provider}. Supported providers: anthropic, google, ollama")
+    
+    @classmethod
+    def create_from_config(cls, config_file: Union[str, Path], agent_name: str, 
+                          logger: logging.Logger = None, prompts_dir: Optional[Union[str, Path]] = None) -> 'Agent':
+        """
+        Convenience method to create an agent from a config file and agent name.
+        
+        :param config_file: Path to JSON config file containing agent configurations
+        :param agent_name: Name of the agent to load from the config file
+        :param logger: Optional logger instance, will create default if None  
+        :param prompts_dir: Directory containing prompt TOML files. If None, defaults to ./prompts
+        :return: Agent instance
+        """
+        configs = AgentConfig.load_from_file(config_file)
+        if agent_name not in configs:
+            raise ValueError(f"Agent '{agent_name}' not found in config file {config_file}")
+        
+        return cls.create(configs[agent_name], logger, prompts_dir)
+    
+    @classmethod
+    def from_dict(cls, config_dict: Dict[str, Any], logger: logging.Logger = None, 
+                 prompts_dir: Optional[Union[str, Path]] = None) -> 'Agent':
+        """
+        Convenience method to create an agent from a configuration dictionary.
+        
+        :param config_dict: Dictionary containing agent configuration
+        :param logger: Optional logger instance, will create default if None
+        :param prompts_dir: Directory containing prompt TOML files. If None, defaults to ./prompts
+        :return: Agent instance
+        """
+        config = AgentConfig.from_dict(config_dict)
+        return cls.create(config, logger, prompts_dir)

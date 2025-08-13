@@ -1,6 +1,5 @@
 import logging
 import requests
-import json
 from .agent import Agent, AgentConfig
 from .agent_logger import CallTimer
 

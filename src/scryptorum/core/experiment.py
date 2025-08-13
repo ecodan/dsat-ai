@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Union
 
 from .runs import Run, RunType
 from .config import ConfigManager
+from .project_config import resolve_experiments_dir
 # Removed logging_utils import - now use logger directly from runs
 
 
@@ -18,7 +19,9 @@ class Experiment:
     def __init__(self, project_root: Union[str, Path], experiment_name: str):
         self.project_root = Path(project_root)
         self.experiment_name = experiment_name
-        self.experiment_path = self.project_root / "experiments" / experiment_name
+        # Use resolve_experiments_dir to support SCRYPTORUM_EXPERIMENTS_DIR env var
+        experiments_base_dir = resolve_experiments_dir()
+        self.experiment_path = experiments_base_dir / experiment_name
 
         # Ensure experiment directory structure exists
         self._setup_experiment()

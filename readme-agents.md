@@ -50,7 +50,7 @@ The `AgentConfig` class defines the configuration for an agent:
 ```python
 config = AgentConfig(
     agent_name="assistant",           # Required: Unique identifier
-    model_provider="anthropic",       # Required: "anthropic" or "google" 
+    model_provider="anthropic",       # Required: "anthropic", "google", or "ollama" 
     model_family="claude",           # Required: Model family
     model_version="claude-3-5-haiku-latest",  # Required: Specific model
     prompt="assistant:v1",         # Required: Prompt in format "name:version" or "name:latest"
@@ -125,6 +125,32 @@ config = AgentConfig(
 
 **Required auth fields:** `project_id`  
 **Optional auth fields:** `location` (defaults to "us-central1")
+
+### Ollama (Local Models)
+
+```python
+config = AgentConfig(
+    agent_name="ollama_agent",
+    model_provider="ollama", 
+    model_family="qwen",  # or llama2, mistral, etc.
+    model_version="qwen",  # Model name as registered in Ollama
+    prompt="assistant:v1",
+    provider_auth={
+        "base_url": "http://localhost:11434"  # Optional, defaults to localhost:11434
+    },
+    model_parameters={
+        "temperature": 0.7
+    }
+)
+```
+
+**Required auth fields:** None (local installation)  
+**Optional auth fields:** `base_url` (defaults to "http://localhost:11434")
+
+**Prerequisites:**
+- Ollama installed and running (`ollama serve`)
+- Required model available (`ollama pull qwen`)
+- `requests` package installed (`pip install requests`)
 
 ## Prompt Management
 
@@ -299,7 +325,7 @@ except Exception as e:
 ```
 
 **Common errors:**
-- `ImportError`: Missing optional dependencies (anthropic, google-cloud-aiplatform)
+- `ImportError`: Missing optional dependencies (anthropic, google-cloud-aiplatform, requests)
 - `ValueError`: Invalid configuration or missing required fields
 - `FileNotFoundError`: Prompt file not found
 - API-specific exceptions for network/auth issues
