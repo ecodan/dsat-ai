@@ -57,6 +57,7 @@ class AgentRun(Run):
         agent_name: Optional[str] = None,
         prompt_name: Optional[str] = None,
         prompt_version: Optional[str] = None,
+        prompt: Optional[str] = None,
         **metadata,
     ) -> None:
         """Enhanced LLM call logging with agent information."""
@@ -71,6 +72,15 @@ class AgentRun(Run):
         # Add agent information if available
         if agent_name:
             llm_data["agent_name"] = agent_name
+        
+        # Handle prompt information - either separate fields or combined format
+        if prompt:
+            # Parse "name:version" format
+            if ":" in prompt:
+                prompt_name, prompt_version = prompt.split(":", 1)
+            else:
+                prompt_name, prompt_version = prompt, "latest"
+        
         if prompt_name:
             llm_data["prompt_name"] = prompt_name
         if prompt_version:

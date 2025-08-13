@@ -6,13 +6,13 @@ via CLI flags - no code changes needed!
 
 Usage examples:
     # Run as trial (default - reuses trial_run directory)
-    python -m scryptorum.cli.commands run example_experiment.py
+    scryptorum run transparent_experiment --script examples/scryptorum/example_experiment_script.py
     
     # Run as milestone (creates new versioned run directory)
-    python -m scryptorum.cli.commands run example_experiment.py --milestone
+    scryptorum run transparent_experiment --script examples/scryptorum/example_experiment_script.py --milestone
     
-    # Set default run type programmatically
-    python -c "from scryptorum import set_default_run_type; set_default_run_type('milestone')"
+    # Or run directly as a Python script
+    python examples/scryptorum/example_experiment_script.py
 """
 
 from scryptorum import experiment, metric, timer, llm_call, set_default_run_type

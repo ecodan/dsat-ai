@@ -6,13 +6,13 @@ The runnable approach provides more structure with prepare/run/score/cleanup pha
 
 Usage:
     # Run as trial (default - reuses trial_run directory)
-    scryptorum run sentiment_analysis -m example_experiment_runnable.SentimentAnalysisRunnable
+    scryptorum run sentiment_analysis --module examples.scryptorum.example_experiment_runnable.SentimentAnalysisRunnable
 
     # Run as milestone (creates new versioned run directory)
-    scryptorum run sentiment_analysis -m example_experiment_runnable.SentimentAnalysisRunnable --milestone
+    scryptorum run sentiment_analysis --module examples.scryptorum.example_experiment_runnable.SentimentAnalysisRunnable --milestone
 
     # Or use script approach
-    scryptorum run sentiment_analysis --script example_experiment_runnable.py
+    scryptorum run sentiment_analysis --script examples/scryptorum/example_experiment_runnable.py
 """
 
 import time

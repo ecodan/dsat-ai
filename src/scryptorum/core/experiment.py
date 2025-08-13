@@ -20,7 +20,8 @@ class Experiment:
         self.project_root = Path(project_root)
         self.experiment_name = experiment_name
         # Use resolve_experiments_dir to support SCRYPTORUM_EXPERIMENTS_DIR env var
-        experiments_base_dir = resolve_experiments_dir()
+        # If a project_root is provided, use its experiments subdirectory
+        experiments_base_dir = resolve_experiments_dir(self.project_root / "experiments")
         self.experiment_path = experiments_base_dir / experiment_name
 
         # Ensure experiment directory structure exists

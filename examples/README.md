@@ -22,6 +22,8 @@ Examples showing the experiment tracking and management framework.
 
 **Key Examples:**
 - **Literary Agent Evaluation**: Complete agent comparison experiment
+- **Decorator-Based Example**: Transparent trial/milestone execution patterns
+- **Class-Based Example**: Structured experiment with lifecycle methods
 
 **Features Demonstrated:**
 - Experiment management with `@experiment` decorator
@@ -30,6 +32,8 @@ Examples showing the experiment tracking and management framework.
 - Judge agent pattern for evaluation
 - JSONL logging and result persistence
 - Environment-based configuration
+- BaseRunnable class patterns for complex experiments
+- Transparent trial vs milestone run modes
 
 ## 🔧 [Configuration](config/)
 
@@ -79,6 +83,30 @@ python examples/agents/agent_logging_examples.py
 python examples/scryptorum/literary_evaluation.py
 ```
 
+**Decorator-Based Experiment Example:**
+```bash
+# Run as trial (lightweight, reuses directory)
+scryptorum run transparent_experiment --script examples/scryptorum/example_experiment_script.py
+
+# Run as milestone (versioned, full artifacts)
+scryptorum run transparent_experiment --script examples/scryptorum/example_experiment_script.py --milestone
+
+# Or directly as Python script
+python examples/scryptorum/example_experiment_script.py
+```
+
+**Class-Based Experiment Example:**
+```bash
+# Run as trial
+scryptorum run sentiment_analysis --module examples.scryptorum.example_experiment_runnable.SentimentAnalysisRunnable
+
+# Run as milestone
+scryptorum run sentiment_analysis --module examples.scryptorum.example_experiment_runnable.SentimentAnalysisRunnable --milestone
+
+# Or directly as Python script
+python examples/scryptorum/example_experiment_runnable.py
+```
+
 ## Example Output
 
 ### Agent Conversation
@@ -109,6 +137,25 @@ Creating judge agent...
 🏆 Winner: Shakespeare
 ```
 
+### Decorator-Based Experiment  
+```
+Running transparent experiment...
+Experiment completed with accuracy: 1.0, throughput: 5.0 items/sec
+[INFO] Run trial_run completed in 1.34 seconds
+```
+
+### Class-Based Experiment
+```
+[DEBUG] Preparing sentiment analysis experiment...
+[DEBUG] Prepared 50 data points in 0.101s
+[DEBUG] Running sentiment analysis...
+[DEBUG] Processed 50 results in 1.020s
+[DEBUG] Evaluating results...
+[DEBUG] Final accuracy: 1.000, throughput: 5.0 items/sec
+[DEBUG] Cleaning up experiment...
+[INFO] Run trial_run completed in 1.15 seconds
+```
+
 ## Directory Structure
 
 ```
@@ -120,8 +167,10 @@ examples/
 │   └── conversation.py
 ├── scryptorum/                  # Experiment framework examples
 │   ├── README.md
-│   ├── literary_evaluation.py
-│   └── experiments/            # Generated experiment data
+│   ├── literary_evaluation.py              # Complete agent evaluation
+│   ├── example_experiment_script.py        # Decorator-based patterns  
+│   ├── example_experiment_runnable.py      # Class-based patterns
+│   └── experiments/                        # Generated experiment data
 └── config/                     # Shared configurations
     ├── agents.json
     └── prompts/
