@@ -22,8 +22,7 @@ class TestAgentConfig:
             "model_provider": "anthropic",
             "model_family": "claude",
             "model_version": "claude-3-5-haiku-latest",
-            "prompt_name": "assistant",
-            "prompt_version": "v1",
+            "prompt": "assistant:v1",
             "model_parameters": {"temperature": 0.7, "max_tokens": 4096},
             "provider_auth": {"api_key": "sk-test-key"},
             "custom_configs": {"custom_field": "custom_value"},
@@ -38,8 +37,7 @@ class TestAgentConfig:
             "model_provider": "anthropic",
             "model_family": "claude",
             "model_version": "claude-3-5-haiku-latest",
-            "prompt_name": "basic",
-            "prompt_version": "v1"
+            "prompt": "basic:v1"
         }
 
     def test_agent_config_creation_with_all_fields(self, valid_config_dict):
@@ -50,8 +48,7 @@ class TestAgentConfig:
         assert config.model_provider == "anthropic"
         assert config.model_family == "claude"
         assert config.model_version == "claude-3-5-haiku-latest"
-        assert config.prompt_name == "assistant"
-        assert config.prompt_version == "v1"
+        assert config.prompt == "assistant:v1"
         assert config.model_parameters == {"temperature": 0.7, "max_tokens": 4096}
         assert config.provider_auth == {"api_key": "sk-test-key"}
         assert config.custom_configs == {"custom_field": "custom_value"}
@@ -109,8 +106,7 @@ class TestAgentConfig:
             "model_provider": "anthropic",
             "model_family": "claude",
             "model_version": "claude-3-5-haiku",
-            "prompt_name": "test",
-            "prompt_version": "v1"
+            "prompt": "test:v1"
         }
         
         config = AgentConfig.from_dict(minimal_dict)
@@ -149,16 +145,14 @@ class TestAgentConfig:
                 "model_provider": "anthropic",
                 "model_family": "claude",
                 "model_version": "claude-3-5-haiku",
-                "prompt_name": "test",
-                "prompt_version": "v1"
+                "prompt": "test:v1"
             },
             "agent2": {
                 "agent_name": "agent2",
                 "model_provider": "google",
                 "model_family": "gemini",
                 "model_version": "gemini-2.0-flash",
-                "prompt_name": "assistant",
-                "prompt_version": "v2"
+                "prompt": "assistant:v2"
             }
         }
         
@@ -187,16 +181,14 @@ agent_name = "agent1"
 model_provider = "anthropic"
 model_family = "claude"
 model_version = "claude-3-5-haiku"
-prompt_name = "test"
-prompt_version = "v1"
+prompt = "test:v1"
 
 [agent2]
 agent_name = "agent2"
 model_provider = "google"
 model_family = "gemini"
 model_version = "gemini-2.0-flash"
-prompt_name = "assistant"
-prompt_version = "v2"
+prompt = "assistant:v2"
 '''
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
@@ -283,8 +275,7 @@ prompt_version = "v2"
                 "model_provider": "anthropic",
                 "model_family": "claude",
                 "model_version": "claude-3-5-haiku",
-                "prompt_name": "test",
-                "prompt_version": "v1"
+                "prompt": "test:v1"
             }
         }
         
@@ -305,8 +296,7 @@ prompt_version = "v2"
             model_provider="anthropic",
             model_family="claude",
             model_version="claude-3-5-haiku",
-            prompt_name="test",
-            prompt_version="v1"
+            prompt="test:v1"
         )
         
         with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as f:
@@ -334,8 +324,7 @@ prompt_version = "v2"
             model_provider="anthropic",
             model_family="claude",
             model_version="claude-3-5-haiku",
-            prompt_name="test",
-            prompt_version="v1"
+            prompt="test:v1"
         )
         
         config2 = AgentConfig(
@@ -343,8 +332,7 @@ prompt_version = "v2"
             model_provider="google",
             model_family="gemini",
             model_version="gemini-2.0-flash",
-            prompt_name="assistant",
-            prompt_version="v2"
+            prompt="assistant:v2"
         )
         
         configs_dict = {"agent1": config1, "agent2": config2}
@@ -371,8 +359,7 @@ prompt_version = "v2"
             model_provider="anthropic",
             model_family="claude",
             model_version="claude-3-5-haiku",
-            prompt_name="test",
-            prompt_version="v1",
+            prompt="test:v1",
             model_parameters={"temperature": 0.5}
         )
         
@@ -399,8 +386,7 @@ prompt_version = "v2"
             model_provider="anthropic",
             model_family="claude",
             model_version="claude-3-5-haiku",
-            prompt_name="test",
-            prompt_version="v1"
+            prompt="test:v1"
         )
         
         with pytest.raises(ValueError, match="Unsupported file format: .yaml"):
@@ -420,8 +406,7 @@ prompt_version = "v2"
             "model_provider": "anthropic",
             "model_family": "claude",
             "model_version": "claude-3-5-haiku",
-            "prompt_name": "test",
-            "prompt_version": "v1"
+            "prompt": "test:v1"
         }
         original_copy = original_dict.copy()
         

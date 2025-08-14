@@ -10,8 +10,8 @@ import json
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-from scryptorum.core.experiment import Experiment
-from scryptorum.core.runs import Run, RunType
+from dsat.scryptorum.core.experiment import Experiment
+from dsat.scryptorum.core.runs import Run, RunType
 from .agent import Agent, AgentConfig
 
 
@@ -87,6 +87,16 @@ class AgentRun(Run):
             llm_data["prompt_version"] = prompt_version
             
         self.log_event("llm_call", llm_data)
+    
+    def snapshot_agent_configs(self, config_dir: Path) -> None:
+        """Snapshot agent configurations to the run directory."""
+        snapshot_dir = self.run_dir / "agent_configs"
+        snapshot_dir.mkdir(exist_ok=True)
+        
+        # Copy all agent config files
+        for config_file in config_dir.glob("*_agent_config.json"):
+            dest_file = snapshot_dir / config_file.name
+            dest_file.write_text(config_file.read_text())
 
 
 class AgentExperiment(Experiment):
@@ -237,7 +247,7 @@ class AgentExperiment(Experiment):
         agent = Agent.create(config)
         
         # Log agent creation in current run context if available
-        from scryptorum.core.decorators import get_current_run
+        from dsat.scryptorum.core.decorators import get_current_run
         current_run = get_current_run()
         if current_run:
             current_run.log_agent_created(agent_name, {

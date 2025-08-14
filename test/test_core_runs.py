@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from scryptorum.core.runs import Run, RunType, TimerContext
+from dsat.scryptorum.core.runs import Run, RunType, TimerContext
 from test.conftest import (
     verify_jsonl_file,
     verify_json_file,
@@ -50,13 +50,13 @@ class TestRunCreation:
     def test_milestone_run_creation(self, milestone_run: Run):
         """Test milestone run creation and initial state."""
         assert milestone_run.run_type == RunType.MILESTONE
-        assert milestone_run.run_id.startswith("run-")
+        assert milestone_run.run_id.startswith("ms-")
         assert milestone_run.start_time is not None
         assert milestone_run.end_time is None
 
         # Verify directory structure
         assert milestone_run.run_dir.exists()
-        assert milestone_run.run_dir.name.startswith("run-")
+        assert milestone_run.run_dir.name.startswith("ms-")
 
         # Verify log files exist
         assert milestone_run.log_file.exists()

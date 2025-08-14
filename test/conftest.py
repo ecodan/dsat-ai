@@ -10,8 +10,8 @@ from typing import Generator
 
 import pytest
 
-from scryptorum.core.experiment import Experiment, create_project
-from scryptorum.core.runs import Run, RunType
+from dsat.scryptorum.core.experiment import Experiment, create_project
+from dsat.scryptorum.core.runs import Run, RunType
 
 
 @pytest.fixture

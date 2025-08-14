@@ -23,8 +23,7 @@ class TestGoogleVertexAIAgent:
             model_provider="google",
             model_family="gemini",
             model_version="gemini-2.0-flash",
-            prompt_name="assistant",
-            prompt_version="v1",
+            prompt="assistant:v1",
             model_parameters={"temperature": 0.5, "max_output_tokens": 8192},
             provider_auth={"project_id": "test-project-123", "location": "us-central1"}
         )
@@ -150,8 +149,7 @@ class TestGoogleVertexAIAgent:
             model_provider="google",
             model_family="gemini",
             model_version="gemini-pro",
-            prompt_name="test",
-            prompt_version="v1",
+            prompt="test:v1",
             provider_auth={}  # No project_id
         )
         
@@ -275,8 +273,7 @@ class TestGoogleVertexAIAgent:
             model_provider="google",
             model_family="gemini",
             model_version="gemini-pro",
-            prompt_name="test",
-            prompt_version="v1",
+            prompt="test:v1",
             provider_auth={"project_id": "test-project"}
             # No model_parameters specified
         )
@@ -362,8 +359,7 @@ class TestGoogleVertexAIAgent:
             model_provider="google",
             model_family="gemini",
             model_version="gemini-ultra",
-            prompt_name="test",
-            prompt_version="v1",
+            prompt="test:v1",
             model_parameters={
                 "temperature": 0.8,
                 "max_output_tokens": 16384
@@ -397,8 +393,7 @@ class TestGoogleVertexAIAgent:
             model_provider="google",
             model_family="gemini",
             model_version="gemini-pro",
-            prompt_name="test",
-            prompt_version="v1",
+            prompt="test:v1",
             provider_auth={"project_id": "test-project", "location": "asia-southeast1"}
         )
         

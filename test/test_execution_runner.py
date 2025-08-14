@@ -9,9 +9,9 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from scryptorum.execution.runner import Runner, BaseRunnable
-from scryptorum.core.experiment import Experiment
-from scryptorum.core.runs import RunType
+from dsat.scryptorum.execution.runner import Runner, BaseRunnable
+from dsat.scryptorum.core.experiment import Experiment
+from dsat.scryptorum.core.runs import RunType
 from test.conftest import verify_jsonl_file, verify_json_file
 
 
@@ -303,7 +303,7 @@ class TestModuleLoading:
         """Test loading runnable class from file path."""
         # Create a module file with runnable class
         module_content = """
-from scryptorum.execution.runner import BaseRunnable
+from dsat.scryptorum.execution.runner import BaseRunnable
 
 class FileRunnable(BaseRunnable):
     def execute(self):
@@ -359,7 +359,7 @@ class NotARunnable:
         """Test that BaseRunnable itself is skipped in favor of concrete implementations."""
         # Create a module file with both BaseRunnable and concrete implementation
         module_content = """
-from scryptorum.execution.runner import BaseRunnable
+from dsat.scryptorum.execution.runner import BaseRunnable
 
 class MyRunnable(BaseRunnable):
     def execute(self):
@@ -394,7 +394,7 @@ class MyRunnable(BaseRunnable):
         
         # Create runnable module
         module_content = """
-from scryptorum.execution.runner import BaseRunnable
+from dsat.scryptorum.execution.runner import BaseRunnable
 
 class SrcRunnable(BaseRunnable):
     def execute(self):

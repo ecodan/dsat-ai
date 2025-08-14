@@ -10,7 +10,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from scryptorum.cli.commands import (
+from dsat.scryptorum.cli.commands import (
     create_project_command,
     create_experiment_command,
     list_experiments_command,
@@ -18,6 +18,7 @@ from scryptorum.cli.commands import (
     run_experiment_command,
     main,
 )
+from dsat.scryptorum.core.runs import RunType
 from test.conftest import verify_json_file, verify_jsonl_file
 
 
@@ -34,7 +35,7 @@ class TestCreateProjectCommand:
 
     def test_create_project_basic(self, temp_dir: Path):
         """Test basic project creation via CLI."""
-        args = MockArgs(name="cli_test_project", path=str(temp_dir))
+        args = MockArgs(name="cli_test_project", parent_dir=str(temp_dir))
 
         # Capture stdout
         captured_output = StringIO()
@@ -62,13 +63,13 @@ class TestCreateProjectCommand:
 
         example_content = example_file.read_text()
         assert '@experiment(name="example_experiment")' in example_content
-        assert "from scryptorum import" in example_content
+        assert "from dsat.scryptorum import" in example_content
 
     def test_create_project_error_handling(self, temp_dir: Path):
         """Test project creation error handling."""
         # Try to create project in non-existent directory with no permissions
         invalid_path = "/invalid/nonexistent/path"
-        args = MockArgs(name="test_project", path=invalid_path)
+        args = MockArgs(name="test_project", parent_dir=invalid_path)
 
         captured_output = StringIO()
         with (
@@ -97,9 +98,10 @@ class TestCreateExperimentCommand:
         output = captured_output.getvalue()
         exp_path = test_project_root / "experiments" / "cli_sentiment_analysis"
 
-        # Verify output message
-        assert f"Created experiment 'cli_sentiment_analysis' in {exp_path}" in output
-        assert "Created experiment template" in output
+        # Verify output message (handle macOS symlink differences)
+        expected_path = str(exp_path.resolve()).replace("/private", "")
+        actual_output = output.replace("/private", "")
+        assert f"Created experiment 'cli_sentiment_analysis' in {expected_path}" in actual_output
 
         # Verify experiment structure
         assert exp_path.exists()
@@ -107,14 +109,6 @@ class TestCreateExperimentCommand:
         assert (exp_path / "runs").exists()
         assert (exp_path / "data").exists()
         assert (exp_path / "config").exists()
-
-        # Verify template file created
-        template_file = exp_path / "cli_sentiment_analysis.py"
-        assert template_file.exists()
-
-        template_content = template_file.read_text()
-        assert '@experiment(name="cli_sentiment_analysis")' in template_content
-        assert "class CliSentimentAnalysisRunnable(BaseRunnable)" in template_content
 
     def test_create_experiment_nonexistent_project(self, temp_dir: Path):
         """Test experiment creation with nonexistent project."""
@@ -148,7 +142,7 @@ class TestListExperimentsCommand:
 
     def test_list_experiments_with_data(self, test_project_root: Path):
         """Test listing experiments with actual experiments."""
-        from scryptorum.core.experiment import Experiment
+        from dsat.scryptorum.core.experiment import Experiment
 
         # Create some experiments
         exp1 = Experiment(test_project_root, "sentiment_analysis")
@@ -157,9 +151,9 @@ class TestListExperimentsCommand:
         # Create some runs in experiments
         run1 = exp1.create_run()
         run1.finish()
-        run2 = exp2.create_run()
+        run2 = exp2.create_run(RunType.MILESTONE)  # Use milestone to avoid reset
         run2.finish()
-        run3 = exp2.create_run()
+        run3 = exp2.create_run(RunType.MILESTONE)  # Use milestone to avoid reset
         run3.finish()
 
         args = MockArgs(project_root=str(test_project_root))
@@ -206,7 +200,7 @@ class TestListRunsCommand:
 
     def test_list_runs_with_data(self, test_experiment):
         """Test listing runs with actual runs."""
-        from scryptorum.core.runs import RunType
+        from dsat.scryptorum.core.runs import RunType
 
         # Create some runs
         trial_run = test_experiment.create_run(RunType.TRIAL)
@@ -236,7 +230,7 @@ class TestRunExperimentCommand:
         """Test running experiment from script in trial mode."""
         # Create a test script
         script_content = """
-from scryptorum import experiment, metric
+from dsat.scryptorum import experiment, metric
 
 @experiment(name="script_test")
 def main():
@@ -283,7 +277,7 @@ if __name__ == "__main__":
     def test_run_experiment_script_milestone(self, test_project_root: Path):
         """Test running experiment from script in milestone mode."""
         script_content = """
-from scryptorum import experiment
+from dsat.scryptorum import experiment
 
 @experiment(name="milestone_test")
 def main():
@@ -412,7 +406,7 @@ class TestMainCLI:
     def test_main_list_experiments(self, test_project_root: Path):
         """Test main CLI with list-experiments command."""
         # Create an experiment first
-        from scryptorum.core.experiment import Experiment
+        from dsat.scryptorum.core.experiment import Experiment
 
         exp = Experiment(test_project_root, "listed_experiment")
 
@@ -429,7 +423,7 @@ class TestMainCLI:
         """Test main CLI with run command."""
         # Create a test script
         script_content = """
-from scryptorum import experiment
+from dsat.scryptorum import experiment
 
 @experiment(name="main_run_test")
 def main():

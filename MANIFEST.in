@@ -1,0 +1,10 @@
+include README.md
+include LICENSE
+include CLAUDE.md
+recursive-include src/dsat *.py
+recursive-include examples *.py *.json *.toml
+recursive-include docs *.md
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .pytest_cache
+global-exclude .git*

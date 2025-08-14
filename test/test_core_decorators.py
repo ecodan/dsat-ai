@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from scryptorum.core.decorators import (
+from dsat.scryptorum.core.decorators import (
     experiment,
     metric,
     timer,
@@ -21,8 +21,8 @@ from scryptorum.core.decorators import (
     run_context,
     time_operation,
 )
-from scryptorum.core.runs import RunType
-from scryptorum.core.experiment import Experiment
+from dsat.scryptorum.core.runs import RunType
+from dsat.scryptorum.core.experiment import Experiment
 from test.conftest import verify_jsonl_file, assert_log_entry_structure
 
 
@@ -48,7 +48,7 @@ class TestRunTypeConfiguration:
     def test_default_run_type_fallback(self):
         """Test that default run type falls back to TRIAL."""
         # Reset to None
-        import scryptorum.core.decorators as decorators
+        import dsat.scryptorum.core.decorators as decorators
 
         decorators._default_run_type = None
 
@@ -142,7 +142,7 @@ class TestExperimentDecorator:
 
         # Should have a versioned run directory (not trial_run)
         run_dirs = [
-            d for d in runs_path.iterdir() if d.is_dir() and d.name.startswith("run-")
+            d for d in runs_path.iterdir() if d.is_dir() and d.name.startswith("ms-")
         ]
         assert len(run_dirs) == 1
 

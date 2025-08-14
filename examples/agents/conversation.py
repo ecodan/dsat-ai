@@ -21,7 +21,7 @@ from pathlib import Path
 # Add the src directory to the path so we can import dsat modules
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from agents.agent import Agent, AgentConfig
+from dsat.agents.agent import Agent, AgentConfig
 
 
 def setup_logging():

@@ -29,9 +29,9 @@ sys.path.insert(0, str(project_root / "src"))
 examples_experiments_dir = project_root / "examples" / "scryptorum" / "experiments"
 os.environ["SCRYPTORUM_EXPERIMENTS_DIR"] = str(examples_experiments_dir)
 
-from scryptorum import experiment, metric, timer, llm_call
-from scryptorum.core.decorators import get_current_run
-from agents.agent import Agent
+from dsat.scryptorum import experiment, metric, timer, llm_call
+from dsat.scryptorum.core.decorators import get_current_run
+from dsat.agents.agent import Agent
 
 
 # Dataset of literary questions with golden answers

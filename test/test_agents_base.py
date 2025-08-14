@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
 from src.agents.agent import Agent, AgentConfig
+from test.echo_agent import EchoAgent, create_echo_agent_config
 
 
 class ConcreteAgent(Agent):
@@ -36,8 +37,7 @@ class TestAgentBase:
             model_provider="test_provider",
             model_family="test_family",
             model_version="test-model-v1",
-            prompt_name="test_prompt",
-            prompt_version="v1",
+            prompt="test_prompt:v1",
             model_parameters={"temperature": 0.7},
             provider_auth={"api_key": "test-key"}
         )
@@ -107,8 +107,7 @@ class TestAgentBase:
             model_provider="test_provider",
             model_family="test_family",
             model_version="test-model-v1",
-            prompt_name="test_prompt",
-            prompt_version=None  # Will get latest
+            prompt="test_prompt:latest"  # Will get latest
         )
         
         # Create prompt file with multiple versions
@@ -129,8 +128,7 @@ class TestAgentBase:
             model_provider="test_provider",
             model_family="test_family", 
             model_version="test-model-v1",
-            prompt_name="test_prompt",
-            prompt_version="latest"  # Explicitly set to latest
+            prompt="test_prompt:latest"  # Explicitly set to latest
         )
         
         agent = ConcreteAgent(config, logger, temp_prompts_dir)
@@ -150,8 +148,7 @@ class TestAgentBase:
             model_provider="test_provider",
             model_family="test_family",
             model_version="test-model-v1",
-            prompt_name="test_prompt",
-            prompt_version=None
+            prompt="test_prompt:latest"
         )
         
         agent = ConcreteAgent(config, logger, temp_prompts_dir)
@@ -231,8 +228,7 @@ class TestAgentFactory:
             model_provider="anthropic",
             model_family="claude",
             model_version="claude-3-5-haiku-latest",
-            prompt_name="assistant",
-            prompt_version="v1",
+            prompt="assistant:v1",
             provider_auth={"api_key": "sk-test-key"}
         )
 
@@ -244,8 +240,7 @@ class TestAgentFactory:
             model_provider="google",
             model_family="gemini",
             model_version="gemini-2.0-flash",
-            prompt_name="assistant",
-            prompt_version="v1",
+            prompt="assistant:v1",
             provider_auth={"project_id": "test-project", "location": "us-central1"}
         )
 
@@ -287,8 +282,7 @@ class TestAgentFactory:
             model_provider="unsupported_provider",
             model_family="unsupported",
             model_version="v1",
-            prompt_name="test",
-            prompt_version="v1"
+            prompt="test:v1"
         )
         
         with pytest.raises(ValueError, match="Unsupported provider: unsupported_provider"):
@@ -302,8 +296,7 @@ class TestAgentFactory:
             model_provider="anthropic",
             model_family="claude",
             model_version="claude-3-5-haiku",
-            prompt_name="test",
-            prompt_version="v1",
+            prompt="test:v1",
             provider_auth={}  # No API key
         )
         
@@ -318,8 +311,7 @@ class TestAgentFactory:
             model_provider="google",
             model_family="gemini",
             model_version="gemini-2.0-flash",
-            prompt_name="test",
-            prompt_version="v1",
+            prompt="test:v1",
             provider_auth={}  # No project_id
         )
         
@@ -370,3 +362,19 @@ class TestAgentFactory:
                 
                 call_args = mock_claude.call_args
                 assert call_args[1]['prompts_dir'] == custom_prompts_dir
+
+    def test_create_echo_agent(self):
+        """Test creating EchoAgent using factory method."""
+        config = create_echo_agent_config("echo_test")
+        
+        # Create agent using factory
+        agent = Agent.create(config)
+        
+        # Should return EchoAgent instance
+        assert isinstance(agent, EchoAgent)
+        assert agent.config.model_provider == "echo"
+        assert agent.model == "echo-v1"
+        
+        # Test invoke functionality
+        response = agent.invoke("Hello world")
+        assert "Echo: Hello world" in response

@@ -15,8 +15,8 @@ Usage examples:
     python examples/scryptorum/example_experiment_script.py
 """
 
-from scryptorum import experiment, metric, timer, llm_call, set_default_run_type
-from scryptorum.core.decorators import get_current_run
+from dsat.scryptorum import experiment, metric, timer, llm_call, set_default_run_type
+from dsat.scryptorum.core.decorators import get_current_run
 import time
 
 

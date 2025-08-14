@@ -23,8 +23,7 @@ class TestClaudeLLMAgent:
             model_provider="anthropic",
             model_family="claude",
             model_version="claude-3-5-haiku-latest",
-            prompt_name="assistant",
-            prompt_version="v1",
+            prompt="assistant:v1",
             model_parameters={"temperature": 0.7, "max_tokens": 4096},
             provider_auth={"api_key": "sk-test-key-123"}
         )
@@ -118,8 +117,7 @@ class TestClaudeLLMAgent:
             model_provider="anthropic",
             model_family="claude",
             model_version="claude-3-5-haiku",
-            prompt_name="test",
-            prompt_version="v1",
+            prompt="test:v1",
             provider_auth={}  # No API key
         )
         
@@ -209,8 +207,7 @@ class TestClaudeLLMAgent:
             model_provider="anthropic",
             model_family="claude",
             model_version="claude-3-5-haiku",
-            prompt_name="test",
-            prompt_version="v1",
+            prompt="test:v1",
             provider_auth={"api_key": "sk-test-key"}
             # No model_parameters specified
         )
@@ -318,8 +315,7 @@ class TestClaudeLLMAgent:
             model_provider="anthropic",
             model_family="claude",
             model_version="claude-3-opus",
-            prompt_name="test",
-            prompt_version="v1",
+            prompt="test:v1",
             model_parameters={
                 "temperature": 0.9,
                 "max_tokens": 8192

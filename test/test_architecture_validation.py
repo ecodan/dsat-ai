@@ -8,9 +8,9 @@ import tempfile
 
 def test_scryptorum_works_independently():
     """Test that scryptorum works without agents module."""
-    from scryptorum.core.experiment import Experiment
-    from scryptorum.core.runs import RunType
-    from scryptorum.core.config import ConfigManager
+    from dsat.scryptorum.core.experiment import Experiment
+    from dsat.scryptorum.core.runs import RunType
+    from dsat.scryptorum.core.config import ConfigManager
     
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
@@ -35,7 +35,7 @@ def test_agents_module_optional_imports():
     """Test that agents module handles optional scryptorum imports gracefully."""
     try:
         # Should be able to import basic agents functionality
-        from agents import Agent, AgentConfig, PromptManager
+        from dsat.agents import Agent, AgentConfig, PromptManager
         agents_available = True
     except ImportError:
         agents_available = False
@@ -43,7 +43,7 @@ def test_agents_module_optional_imports():
     if agents_available:
         # Should be able to import enhanced classes if scryptorum is available
         try:
-            from agents import AgentExperiment, AgentRun
+            from dsat.agents import AgentExperiment, AgentRun
             enhanced_available = True
         except ImportError:
             enhanced_available = False
@@ -59,7 +59,7 @@ def test_both_patterns_coexist():
         temp_path = Path(temp_dir)
         
         # Base scryptorum experiment
-        from scryptorum.core.experiment import Experiment
+        from dsat.scryptorum.core.experiment import Experiment
         base_experiment = Experiment(temp_path / "base", "base_test")
         base_run = base_experiment.create_run()
         
@@ -69,7 +69,7 @@ def test_both_patterns_coexist():
         
         # Try agent experiment if available
         try:
-            from agents import AgentExperiment
+            from dsat.agents import AgentExperiment
             agent_experiment = AgentExperiment(temp_path / "agent", "agent_test")
             agent_run = agent_experiment.create_run()
             
@@ -89,9 +89,9 @@ def test_no_coupling_violations():
     """Test that there are no unwanted dependencies."""
     
     # Scryptorum should not import agents
-    import scryptorum.core.experiment
-    import scryptorum.core.runs
-    import scryptorum.core.config
+    import dsat.scryptorum.core.experiment
+    import dsat.scryptorum.core.runs
+    import dsat.scryptorum.core.config
     
     # Check that no agents imports exist in scryptorum modules
     scryptorum_modules = [
@@ -111,9 +111,9 @@ def test_no_coupling_violations():
 def test_clean_inheritance_pattern():
     """Test that the inheritance pattern is clean."""
     try:
-        from agents import AgentExperiment, AgentRun
-        from scryptorum.core.experiment import Experiment
-        from scryptorum.core.runs import Run
+        from dsat.agents import AgentExperiment, AgentRun
+        from dsat.scryptorum.core.experiment import Experiment
+        from dsat.scryptorum.core.runs import Run
         
         # AgentExperiment should inherit from Experiment
         assert issubclass(AgentExperiment, Experiment)
@@ -141,7 +141,7 @@ def test_clean_inheritance_pattern():
 
 def test_configuration_isolation():
     """Test that configurations are properly isolated."""
-    from scryptorum.core.config import ConfigManager
+    from dsat.scryptorum.core.config import ConfigManager
     
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
@@ -163,7 +163,7 @@ def test_configuration_isolation():
         
         # Try agent config if available
         try:
-            from agents import AgentExperiment
+            from dsat.agents import AgentExperiment
             
             agent_experiment = AgentExperiment(temp_path, "config_test")
             
@@ -187,7 +187,7 @@ def test_configuration_isolation():
 
 def test_backwards_compatibility():
     """Test that existing scryptorum code continues to work."""
-    from scryptorum import experiment, metric, timer, Experiment, RunType
+    from dsat.scryptorum import experiment, metric, timer, Experiment, RunType
     
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
@@ -202,7 +202,7 @@ def test_backwards_compatibility():
             return 0.5
         
         # Should execute without issues
-        from scryptorum.core.decorators import set_default_run_type
+        from dsat.scryptorum.core.decorators import set_default_run_type
         set_default_run_type(RunType.TRIAL)
         
         result = test_experiment(project_root=temp_path)

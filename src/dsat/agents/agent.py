@@ -309,8 +309,12 @@ class Agent(metaclass=ABCMeta):
         if self._system_prompt is not None:
             return self._system_prompt
             
-        prompt_name = self.config.prompt_name
-        prompt_version = self.config.prompt_version
+        # Parse prompt field (format: "name:version" or "name:latest")
+        prompt_spec = self.config.prompt
+        if ":" in prompt_spec:
+            prompt_name, prompt_version = prompt_spec.split(":", 1)
+        else:
+            prompt_name, prompt_version = prompt_spec, "latest"
         
         # Handle "latest" version or None
         if prompt_version == "latest" or prompt_version is None:

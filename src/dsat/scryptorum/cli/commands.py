@@ -28,8 +28,8 @@ Sample experiment for {project_name}.
 This demonstrates both decorator and class-based approaches to running experiments.
 """
 
-from scryptorum import experiment, metric, timer, llm_call
-from scryptorum.execution.runner import BaseRunnable
+from dsat.scryptorum import experiment, metric, timer, llm_call
+from dsat.scryptorum.execution.runner import BaseRunnable
 
 
 @experiment(name="sample_experiment")
@@ -104,7 +104,7 @@ if __name__ == "__main__":
     print(f"Experiment completed with accuracy: {{result}}")
     
     # Option 2: Run using Runner (uses proper experiment logging)
-    # from scryptorum.execution.runner import Runner
+    # from dsat.scryptorum.execution.runner import Runner
     # print("\\nRunning sample experiment with Runner...")
     # runner = Runner(".")
     # runner.run_experiment("sample_experiment", SampleExperimentRunnable)
@@ -130,7 +130,7 @@ def create_project_command(args) -> None:
 Example scryptorum experiment using decorators.
 """
 
-from scryptorum import experiment, metric, timer, llm_call
+from dsat.scryptorum import experiment, metric, timer, llm_call
 
 
 @experiment(name="example_experiment")

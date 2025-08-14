@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from scryptorum import (
+from dsat.scryptorum import (
     experiment,
     metric,
     timer,
@@ -18,8 +18,8 @@ from scryptorum import (
     RunType,
     set_default_run_type,
 )
-from scryptorum.execution.runner import Runner, BaseRunnable
-from scryptorum.core.decorators import run_context
+from dsat.scryptorum.execution.runner import Runner, BaseRunnable
+from dsat.scryptorum.core.decorators import run_context
 from test.conftest import verify_jsonl_file, verify_json_file
 
 
@@ -317,7 +317,7 @@ class TestEndToEndScenarios:
             """Experiment mixing decorators and manual logging."""
 
             # Get the current run for manual logging
-            from scryptorum.core.decorators import get_current_run
+            from dsat.scryptorum.core.decorators import get_current_run
 
             run = get_current_run()
 
@@ -328,7 +328,7 @@ class TestEndToEndScenarios:
             data = load_data_with_timer()
 
             # Manual timing
-            from scryptorum.core.runs import TimerContext
+            from dsat.scryptorum.core.runs import TimerContext
             with TimerContext(run, "manual_processing"):
                 processed_data = [x * 2 for x in data]
                 time.sleep(0.01)
@@ -551,12 +551,12 @@ class TestAgentIntegration:
     """Integration tests for agent-enhanced experiments."""
 
     @pytest.mark.skipif(
-        not pytest.importorskip("agents", reason="agents module not available"),
+        not pytest.importorskip("src.agents", reason="agents module not available"),
         reason="Agent tests require agents module"
     )
     def test_agent_experiment_vs_base_experiment(self, test_project_root: Path):
         """Test that agent experiments provide enhanced functionality."""
-        from agents import AgentExperiment
+        from src.agents.agent_experiment import AgentExperiment
         
         # Create both types of experiments
         base_experiment = Experiment(test_project_root / "base", "base_test")
@@ -598,16 +598,16 @@ class TestAgentIntegration:
         assert "agent_invoke" in event_types
 
     @pytest.mark.skipif(
-        not pytest.importorskip("agents", reason="agents module not available"),
+        not pytest.importorskip("src.agents", reason="agents module not available"),
         reason="Agent tests require agents module"
     )
     def test_agent_experiment_decorators_integration(self, test_project_root: Path):
         """Test agent experiment with scryptorum decorators."""
-        from agents import AgentExperiment
+        from src.agents.agent_experiment import AgentExperiment
         from unittest.mock import patch, MagicMock
 
         # Mock agent creation to avoid dependencies
-        with patch('agents.experiment.Agent') as mock_agent_class:
+        with patch('src.agents.agent_experiment.Agent') as mock_agent_class:
             mock_agent = MagicMock()
             mock_agent_class.create.return_value = mock_agent
             
@@ -625,7 +625,7 @@ class TestAgentIntegration:
                 """Experiment using both agents and decorators."""
                 
                 # Get current run for agent operations
-                from scryptorum.core.decorators import get_current_run
+                from dsat.scryptorum.core.decorators import get_current_run
                 run = get_current_run()
                 
                 # Create agent (this will be logged automatically)
@@ -645,7 +645,7 @@ class TestAgentIntegration:
                 time.sleep(0.01)
                 
                 # Mock agent usage - in real scenario would call agent.invoke()
-                from scryptorum.core.decorators import get_current_run
+                from dsat.scryptorum.core.decorators import get_current_run
                 run = get_current_run()
                 
                 # Enhanced LLM logging with agent info
@@ -702,12 +702,12 @@ class TestAgentIntegration:
             assert llm_event.get("prompt_version") == "v1"
 
     @pytest.mark.skipif(
-        not pytest.importorskip("agents", reason="agents module not available"),
+        not pytest.importorskip("src.agents", reason="agents module not available"),
         reason="Agent tests require agents module"
     )
     def test_agent_experiment_milestone_run_snapshot(self, test_project_root: Path):
         """Test that agent experiments snapshot configs in milestone runs."""
-        from agents import AgentExperiment
+        from src.agents.agent_experiment import AgentExperiment
 
         agent_experiment = AgentExperiment(test_project_root, "snapshot_test")
         
@@ -760,7 +760,7 @@ class TestAgentIntegration:
 
         # Try to import agent experiment - should work even if not available
         try:
-            from agents import AgentExperiment
+            from src.agents.agent_experiment import AgentExperiment
             agent_available = True
         except ImportError:
             agent_available = False

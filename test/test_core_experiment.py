@@ -6,8 +6,8 @@ import json
 import pytest
 from pathlib import Path
 
-from scryptorum.core.experiment import Experiment, create_project
-from scryptorum.core.runs import RunType
+from dsat.scryptorum.core.experiment import Experiment, create_project
+from dsat.scryptorum.core.runs import RunType
 from test.conftest import verify_json_file, verify_jsonl_file
 
 
@@ -55,7 +55,7 @@ class TestExperiment:
 
         # Verify experiment path
         expected_path = test_project_root / "experiments" / "sentiment_analysis"
-        assert experiment.experiment_path == expected_path
+        assert experiment.experiment_path.resolve() == expected_path.resolve()
         assert experiment.experiment_name == "sentiment_analysis"
 
         # Verify experiment directories
@@ -102,7 +102,7 @@ class TestExperiment:
         run = test_experiment.create_run(RunType.MILESTONE)
 
         assert run.run_type == RunType.MILESTONE
-        assert run.run_id.startswith("run-")
+        assert run.run_id.startswith("ms-")
         assert run.run_dir.exists()
 
         # Verify milestone run structure

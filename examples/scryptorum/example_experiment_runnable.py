@@ -18,9 +18,9 @@ Usage:
 import time
 from typing import Dict, Any, List
 
-from scryptorum.execution.runner import BaseRunnable
-from scryptorum.core.experiment import Experiment
-from scryptorum.core.runs import Run
+from dsat.scryptorum.execution.runner import BaseRunnable
+from dsat.scryptorum.core.experiment import Experiment
+from dsat.scryptorum.core.runs import Run
 
 
 class SentimentAnalysisRunnable(BaseRunnable):
@@ -179,8 +179,8 @@ class SentimentAnalysisRunnable(BaseRunnable):
 # For script-based execution, create a simple wrapper
 def main():
     """Simple wrapper for script-based execution."""
-    from scryptorum.core.experiment import Experiment
-    from scryptorum.core.runs import RunType
+    from dsat.scryptorum.core.experiment import Experiment
+    from dsat.scryptorum.core.runs import RunType
     
     # This would normally be handled by the CLI, but for direct script execution:
     experiment = Experiment(".", "sentiment_analysis")
