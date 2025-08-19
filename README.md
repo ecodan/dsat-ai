@@ -1,6 +1,30 @@
 # Dan's Simple Agent Toolkit (DSAT)
 
-DSAT is a comprehensive Python toolkit for building LLM applications and running experiments. It consists of two main frameworks that work independently or together:
+DSAT is a comprehensive Python toolkit for building LLM applications and running experiments. It provides three core components that work independently or together:
+
+## 💬 [Chat CLI](readme-chat.md)
+
+An interactive terminal-based chat interface for testing prompts and having conversations with LLM agents.
+
+**Key Features:**
+- **Zero-config mode**: Auto-detects providers via environment variables
+- **Multiple usage patterns**: Config files, inline creation, or auto-discovery
+- **Interactive commands**: `/help`, `/agents`, `/switch`, `/export`, and more
+- **Flexible prompts**: Multiple directory search strategies and per-agent overrides
+- **Plugin system**: Entry points for custom LLM provider extensions
+- **Session management**: History tracking and conversation export
+
+**Quick Start:**
+```bash
+# Zero-config (with API key in environment)
+dsat chat
+
+# Use existing agent configuration
+dsat chat --config agents.json --agent my_assistant
+
+# Create agent inline
+dsat chat --provider anthropic --model claude-3-5-haiku-latest
+```
 
 ## 🤖 [Agents Framework](readme-agents.md)
 
@@ -112,6 +136,9 @@ scryptorum create-experiment my_experiment
 
 ### Run Examples
 ```bash
+# Interactive chat interface
+dsat chat --config examples/config/agents.json --agent pirate
+
 # Agent conversation demo
 python examples/agents/conversation.py
 
@@ -129,6 +156,7 @@ The [`examples/`](examples/) directory contains comprehensive demonstrations:
 - **[`examples/agents/`](examples/agents/)**: Agent framework examples including logging patterns and character conversations
 - **[`examples/scryptorum/`](examples/scryptorum/)**: Experiment tracking examples with literary agent evaluation
 - **[`examples/config/`](examples/config/)**: Shared configurations and prompt templates
+- **[`examples/flexible-prompts/`](examples/flexible-prompts/)**: Chat CLI examples with flexible prompts directory management
 
 ## 🏗️ Architecture
 
@@ -152,6 +180,7 @@ your_project/                    ← Your Python Package
 
 ## 📖 Documentation
 
+- **[Chat CLI](readme-chat.md)**: Interactive terminal chat interface for agent testing
 - **[Agents Framework](readme-agents.md)**: Multi-provider LLM agent system
 - **[Scryptorum Framework](readme-scryptorum.md)**: Experiment tracking and management
 - **[Examples Documentation](examples/README.md)**: Comprehensive examples and tutorials

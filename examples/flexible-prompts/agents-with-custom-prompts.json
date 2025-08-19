@@ -1,0 +1,40 @@
+{
+  "researcher": {
+    "model_provider": "ollama",
+    "model_family": "qwen",
+    "model_version": "qwen",
+    "prompt": "researcher:v1",
+    "prompts_dir": "./research-prompts",
+    "model_parameters": {
+      "temperature": 0.3
+    },
+    "provider_auth": {
+      "base_url": "http://localhost:11434"
+    }
+  },
+  "creative_writer": {
+    "model_provider": "ollama",
+    "model_family": "qwen", 
+    "model_version": "qwen",
+    "prompt": "creative:v1",
+    "prompts_dir": "./creative-prompts",
+    "model_parameters": {
+      "temperature": 0.8
+    },
+    "provider_auth": {
+      "base_url": "http://localhost:11434"
+    }
+  },
+  "general_assistant": {
+    "model_provider": "ollama",
+    "model_family": "qwen",
+    "model_version": "qwen", 
+    "prompt": "assistant:latest",
+    "model_parameters": {
+      "temperature": 0.7
+    },
+    "provider_auth": {
+      "base_url": "http://localhost:11434"
+    }
+  }
+}

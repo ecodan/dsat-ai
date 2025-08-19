@@ -1,6 +1,6 @@
 [project]
 name = "dsat-ai"
-version = "0.1.0"
+version = "0.2.0"
 description = "Dan's Simple Agent Toolkit - Multi-provider LLM agents and experiment tracking"
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.12"
@@ -23,6 +23,8 @@ dependencies = [
     "python-dotenv>=1.1.0",
     "tomlkit>=0.12.0",
     "requests>=2.31.0",
+    "colorama>=0.4.0",
+    "importlib-metadata>=4.0.0; python_version < '3.10'",
 ]
 
 [project.scripts]
@@ -43,6 +45,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/dsat"]
+
+# Entry points for plugin discovery
+[project.entry-points."dsat.providers"]
+# Example: openai = "my_openai_package:OpenAIAgent"
+# Plugins will register themselves here
 
 [project.urls]
 Homepage = "https://github.com/ecodan/dsat"

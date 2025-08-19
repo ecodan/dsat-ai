@@ -9,6 +9,17 @@ from typing import Optional, Dict, Any, List, Union, TYPE_CHECKING
 if TYPE_CHECKING:
     pass
 
+# Entry points for plugin discovery
+try:
+    from importlib.metadata import entry_points
+    ENTRY_POINTS_AVAILABLE = True
+except ImportError:
+    try:
+        from importlib_metadata import entry_points
+        ENTRY_POINTS_AVAILABLE = True
+    except ImportError:
+        ENTRY_POINTS_AVAILABLE = False
+
 from .prompts import PromptManager
 from .agent_logger import AgentCallLogger
 
@@ -110,6 +121,7 @@ class AgentConfig:
     provider_auth: Optional[Dict[str, str]] = field(default_factory=dict)
     custom_configs: Optional[Dict[str, Any]] = field(default_factory=dict)
     tools: Optional[List[str]] = field(default_factory=list)  # FUTURE: MCP tools
+    prompts_dir: Optional[str] = None  # Optional prompts directory override
 
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> 'AgentConfig':
@@ -136,6 +148,7 @@ class AgentConfig:
         config_data.setdefault("provider_auth", {})
         config_data.setdefault("custom_configs", {})
         config_data.setdefault("tools", [])
+        config_data.setdefault("prompts_dir", None)
         
         return cls(**config_data)
     
@@ -236,7 +249,8 @@ class AgentConfig:
             "model_parameters": self.model_parameters,
             "provider_auth": self.provider_auth,
             "custom_configs": self.custom_configs,
-            "tools": self.tools
+            "tools": self.tools,
+            "prompts_dir": self.prompts_dir
         }
         
     def save_to_file(self, file_path: Union[str, Path], configs: Dict[str, 'AgentConfig'] = None) -> None:
@@ -276,6 +290,9 @@ class Agent(metaclass=ABCMeta):
     """
     Base class for all agents.
     """
+    
+    # Registry for custom providers (class variable)
+    _custom_providers: Dict[str, type] = {}
 
     def __init__(self, config: AgentConfig, logger: logging.Logger, prompts_dir: Optional[Union[str, Path]] = None):
         """
@@ -326,6 +343,87 @@ class Agent(metaclass=ABCMeta):
             self.logger.warning(f"System prompt not found: {prompt_name}:{prompt_version or 'latest'}")
             
         return self._system_prompt
+
+    @classmethod
+    def register_provider(cls, provider_name: str, agent_class: type):
+        """
+        Register a custom provider agent class.
+        
+        :param provider_name: Name of the provider (e.g., "openai", "azure")
+        :param agent_class: Agent class that extends Agent
+        """
+        if not issubclass(agent_class, Agent):
+            raise ValueError(f"Agent class must extend Agent base class")
+        
+        cls._custom_providers[provider_name.lower()] = agent_class
+
+    @classmethod 
+    def _discover_plugin_providers(cls) -> Dict[str, type]:
+        """
+        Discover agent providers via entry points.
+        
+        :return: Dictionary mapping provider names to agent classes
+        """
+        providers = {}
+        
+        if not ENTRY_POINTS_AVAILABLE:
+            return providers
+            
+        try:
+            # Look for entry points in the 'dsat.providers' group
+            eps = entry_points()
+            
+            # Handle different versions of entry_points API
+            if hasattr(eps, 'select'):
+                # Python 3.10+ style
+                provider_eps = eps.select(group='dsat.providers')
+            else:
+                # Older style
+                provider_eps = eps.get('dsat.providers', [])
+            
+            for ep in provider_eps:
+                try:
+                    agent_class = ep.load()
+                    if issubclass(agent_class, Agent):
+                        providers[ep.name.lower()] = agent_class
+                    else:
+                        logging.getLogger(__name__).warning(
+                            f"Plugin provider '{ep.name}' does not extend Agent class"
+                        )
+                except Exception as e:
+                    logging.getLogger(__name__).warning(
+                        f"Failed to load plugin provider '{ep.name}': {e}"
+                    )
+                    
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Error discovering plugin providers: {e}")
+            
+        return providers
+
+    @classmethod
+    def get_available_providers(cls) -> Dict[str, str]:
+        """
+        Get all available providers (built-in and plugins).
+        
+        :return: Dictionary mapping provider names to their source
+        """
+        providers = {}
+        
+        # Built-in providers
+        built_in = ["anthropic", "google", "ollama"]
+        for provider in built_in:
+            providers[provider] = "built-in"
+        
+        # Custom registered providers
+        for provider in cls._custom_providers:
+            providers[provider] = "registered"
+            
+        # Plugin providers
+        plugin_providers = cls._discover_plugin_providers()
+        for provider in plugin_providers:
+            providers[provider] = "plugin"
+            
+        return providers
 
     def _setup_call_logger(self) -> Optional[AgentCallLogger]:
         """
@@ -390,6 +488,18 @@ class Agent(metaclass=ABCMeta):
             
         provider = config.model_provider.lower()
         
+        # Check custom registered providers first
+        if provider in cls._custom_providers:
+            agent_class = cls._custom_providers[provider]
+            return agent_class(config=config, logger=logger, prompts_dir=prompts_dir)
+        
+        # Check plugin providers
+        plugin_providers = cls._discover_plugin_providers()
+        if provider in plugin_providers:
+            agent_class = plugin_providers[provider]
+            return agent_class(config=config, logger=logger, prompts_dir=prompts_dir)
+        
+        # Fall back to built-in providers
         if provider == "anthropic":
             # Check if anthropic is available
             try:
@@ -439,7 +549,9 @@ class Agent(metaclass=ABCMeta):
             return OllamaAgent(config=config, base_url=base_url, logger=logger, prompts_dir=prompts_dir)
 
         else:
-            raise ValueError(f"Unsupported provider: {provider}. Supported providers: anthropic, google, ollama")
+            # Get available providers for error message
+            available_providers = list(cls.get_available_providers().keys())
+            raise ValueError(f"Unsupported provider: {provider}. Available providers: {', '.join(available_providers)}")
     
     @classmethod
     def create_from_config(cls, config_file: Union[str, Path], agent_name: str, 
