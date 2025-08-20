@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, List, Union, TYPE_CHECKING
+from typing import Optional, Dict, Any, List, Union, TYPE_CHECKING, AsyncGenerator
 
 if TYPE_CHECKING:
     pass
@@ -76,6 +76,8 @@ class AgentConfig:
         }
     tools : list, optional
         FUTURE: List of all MCP tools available to the agent
+    stream : bool, optional
+        Enable token streaming for supported providers (default: False)
     
     Usage:
     ------
@@ -122,6 +124,7 @@ class AgentConfig:
     custom_configs: Optional[Dict[str, Any]] = field(default_factory=dict)
     tools: Optional[List[str]] = field(default_factory=list)  # FUTURE: MCP tools
     prompts_dir: Optional[str] = None  # Optional prompts directory override
+    stream: bool = False  # Enable token streaming for supported providers
 
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> 'AgentConfig':
@@ -149,6 +152,7 @@ class AgentConfig:
         config_data.setdefault("custom_configs", {})
         config_data.setdefault("tools", [])
         config_data.setdefault("prompts_dir", None)
+        config_data.setdefault("stream", False)
         
         return cls(**config_data)
     
@@ -250,7 +254,8 @@ class AgentConfig:
             "provider_auth": self.provider_auth,
             "custom_configs": self.custom_configs,
             "tools": self.tools,
-            "prompts_dir": self.prompts_dir
+            "prompts_dir": self.prompts_dir,
+            "stream": self.stream
         }
         
     def save_to_file(self, file_path: Union[str, Path], configs: Dict[str, 'AgentConfig'] = None) -> None:
@@ -464,6 +469,17 @@ class Agent(metaclass=ABCMeta):
         """
         pass
 
+    @abstractmethod
+    async def invoke_async(self, user_prompt: str, system_prompt: Optional[str] = None) -> AsyncGenerator[str, None]:
+        """
+        Send the prompts to the LLM and return a streaming async generator of response tokens.
+        
+        :param user_prompt: Specific user prompt
+        :param system_prompt: Optional system prompt override. If None, loads from config via prompt manager.
+        :return: AsyncGenerator yielding response text chunks
+        """
+        pass
+
     @property
     @abstractmethod
     def model(self) -> str:
@@ -487,18 +503,23 @@ class Agent(metaclass=ABCMeta):
             logger = logging.getLogger(__name__)
             
         provider = config.model_provider.lower()
-        
+        logger.info(f"Creating agent for provider: {provider} with model family: {config.model_family} and version: {config.model_version}")
+
         # Check custom registered providers first
         if provider in cls._custom_providers:
             agent_class = cls._custom_providers[provider]
             return agent_class(config=config, logger=logger, prompts_dir=prompts_dir)
-        
+        else:
+            logger.debug(f"No custom provider registered for: {provider}")
+
         # Check plugin providers
         plugin_providers = cls._discover_plugin_providers()
         if provider in plugin_providers:
             agent_class = plugin_providers[provider]
             return agent_class(config=config, logger=logger, prompts_dir=prompts_dir)
-        
+        else:
+            logger.debug(f"No plugin provider found for: {provider}")
+
         # Fall back to built-in providers
         if provider == "anthropic":
             # Check if anthropic is available

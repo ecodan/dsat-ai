@@ -14,6 +14,9 @@ export ANTHROPIC_API_KEY="your-key-here"
 
 # Start chatting immediately
 dsat chat
+
+# Enable real-time streaming for instant responses
+dsat chat --stream
 ```
 
 This will auto-detect the available provider and create a default agent.
@@ -26,6 +29,9 @@ For more control, use agent configuration files:
 # Use a specific agent from config
 dsat chat --config agents.json --agent my_assistant
 
+# Enable streaming with configuration
+dsat chat --config agents.json --agent my_assistant --stream
+
 # Override prompts directory
 dsat chat --config agents.json --agent researcher --prompts-dir ./my-prompts
 ```
@@ -37,6 +43,9 @@ Create agents on the fly without configuration files:
 ```bash
 # Specify provider and model directly
 dsat chat --provider anthropic --model claude-3-5-haiku-latest
+
+# Enable streaming with inline creation
+dsat chat --provider anthropic --model claude-3-5-haiku-latest --stream
 
 # Works with any supported provider
 dsat chat --provider ollama --model llama3.2
@@ -53,6 +62,7 @@ Options:
   -p, --provider PROVIDER   LLM provider (anthropic|google|ollama)
   -m, --model MODEL         Model version for inline creation
   -d, --prompts-dir PATH    Directory containing prompt TOML files
+  -s, --stream              Enable real-time token streaming
   --no-colors               Disable colored output
   -h, --help               Show help message
 ```
@@ -67,6 +77,7 @@ Once in the chat interface, use these commands:
 | `/agents` | List configured agents |
 | `/providers` | Show available LLM providers (built-in + plugins) |
 | `/switch <agent>` | Switch to a different agent mid-conversation |
+| `/stream` | Toggle real-time streaming mode (ON/OFF) |
 | `/history` | Display conversation history |
 | `/clear` | Clear conversation history |
 | `/export <file>` | Export conversation to JSON file |
@@ -89,7 +100,8 @@ Once in the chat interface, use these commands:
     },
     "provider_auth": {
       "api_key": "your-api-key"
-    }
+    },
+    "stream": true
   }
 }
 ```
@@ -106,7 +118,8 @@ Once in the chat interface, use these commands:
     "prompts_dir": "./research-prompts",
     "provider_auth": {
       "api_key": "your-api-key"
-    }
+    },
+    "stream": false
   },
   "creative_writer": {
     "model_provider": "anthropic", 
@@ -119,7 +132,8 @@ Once in the chat interface, use these commands:
     },
     "provider_auth": {
       "api_key": "your-api-key"
-    }
+    },
+    "stream": true
   }
 }
 ```
@@ -182,6 +196,91 @@ my-project/
     ├── helper.toml
     └── general.toml
 ```
+
+## 🌊 Real-time Streaming
+
+The Chat CLI supports real-time token streaming for immediate response feedback, making conversations feel more natural and responsive.
+
+### Enabling Streaming
+
+Stream mode can be enabled in several ways:
+
+**Command Line Flag:**
+```bash
+# Enable streaming from start
+dsat chat --stream
+
+# Works with any configuration method
+dsat chat --config agents.json --agent my_assistant --stream
+dsat chat --provider anthropic --model claude-3-5-haiku-latest --stream
+```
+
+**Agent Configuration:**
+```json
+{
+  "streaming_agent": {
+    "model_provider": "anthropic",
+    "model_version": "claude-3-5-haiku-latest",
+    "prompt": "assistant:v1",
+    "stream": true,
+    "provider_auth": {
+      "api_key": "your-api-key"
+    }
+  }
+}
+```
+
+**Interactive Toggle:**
+```bash
+# Start chat normally
+dsat chat
+
+# Toggle streaming during conversation
+> /stream
+Streaming mode enabled.
+
+> Hello there!
+# Response appears token-by-token in real-time
+
+> /stream  
+Streaming mode disabled.
+```
+
+### Streaming Behavior
+
+When streaming is enabled:
+
+- **Real-time tokens**: Responses appear character-by-character as they're generated
+- **Status indicator**: The chat interface shows streaming is ON/OFF in the header
+- **Natural feel**: Conversations feel more interactive and immediate
+- **Full compatibility**: Works with all providers (Anthropic, Google Vertex AI, Ollama)
+- **Error handling**: Gracefully falls back to traditional mode if streaming fails
+
+### Visual Experience
+
+**Traditional mode:**
+```
+You: Explain quantum computing
+🤔 Thinking...
+🤖 Assistant: [Complete response appears at once]
+```
+
+**Streaming mode:**
+```
+You: Explain quantum computing
+🤔 Thinking...
+🤖 Assistant: Quantum computing is a revolutionary...
+                ↑ Text appears progressively in real-time
+```
+
+### Performance Benefits
+
+- **Faster perceived response**: First tokens arrive immediately
+- **Better engagement**: Visual feedback shows the model is working
+- **Interrupt capability**: Can see response developing in real-time
+- **Memory efficient**: Processes tokens incrementally
+
+Streaming is supported across all DSAT agent providers and integrates seamlessly with the existing chat interface and logging systems.
 
 ## 🔌 Provider Support
 

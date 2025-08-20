@@ -11,6 +11,7 @@ import json
 import argparse
 import logging
 import requests
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -72,6 +73,7 @@ class ChatInterface:
         self.logger = self._setup_logging()
         self.prompts_dir: Optional[Path] = None  # Will be set during initialization
         self.ollama_models_available: List[str] = []  # Store available Ollama models
+        self.streaming_enabled: bool = False  # Track streaming state
         
     def _setup_logging(self) -> logging.Logger:
         """Setup logging for the chat interface."""
@@ -97,6 +99,7 @@ class ChatInterface:
         print(f"  {Fore.GREEN}/agents{Style.RESET_ALL}               - List available agents")
         print(f"  {Fore.GREEN}/providers{Style.RESET_ALL}            - List available LLM providers")
         print(f"  {Fore.GREEN}/switch <agent>{Style.RESET_ALL}       - Switch to a different agent")
+        print(f"  {Fore.GREEN}/stream{Style.RESET_ALL}               - Toggle streaming mode (currently: {'ON' if self.streaming_enabled else 'OFF'})")
         print(f"  {Fore.GREEN}/history{Style.RESET_ALL}              - Show conversation history")
         print(f"  {Fore.GREEN}/clear{Style.RESET_ALL}                - Clear conversation history")
         print(f"  {Fore.GREEN}/export <file>{Style.RESET_ALL}        - Export conversation to file")
@@ -179,6 +182,8 @@ class ChatInterface:
                 print(f"{Fore.RED}Usage: /switch <agent_name>{Style.RESET_ALL}")
             else:
                 self._switch_agent(parts[1])
+        elif cmd == 'stream':
+            self._toggle_streaming()
         elif cmd == 'history':
             self._show_history()
         elif cmd == 'clear':
@@ -211,6 +216,12 @@ class ChatInterface:
             print(f"{Fore.GREEN}Switched to agent: {agent_name}{Style.RESET_ALL}")
         except Exception as e:
             print(f"{Fore.RED}Error switching to agent '{agent_name}': {e}{Style.RESET_ALL}")
+    
+    def _toggle_streaming(self):
+        """Toggle streaming mode on/off."""
+        self.streaming_enabled = not self.streaming_enabled
+        status = "enabled" if self.streaming_enabled else "disabled"
+        print(f"{Fore.GREEN}Streaming mode {status}.{Style.RESET_ALL}")
     
     def _show_history(self):
         """Show conversation history."""
@@ -483,7 +494,8 @@ class ChatInterface:
                          agent_name: Optional[str] = None,
                          provider: Optional[str] = None,
                          model: Optional[str] = None,
-                         prompts_dir: Optional[Path] = None) -> bool:
+                         prompts_dir: Optional[Path] = None,
+                         stream: bool = False) -> bool:
         """
         Initialize agents for the chat session.
         
@@ -491,11 +503,14 @@ class ChatInterface:
         :param agent_name: Optional specific agent name to use
         :param provider: Optional provider for inline agent creation
         :param model: Optional model for inline agent creation
+        :param prompts_dir: Optional prompts directory override
+        :param stream: Enable streaming mode
         :return: True if agents were successfully initialized
         """
-        # Store CLI prompts directory for later use
+        # Store CLI prompts directory and streaming preference for later use
         self.cli_prompts_dir = prompts_dir
         self.config_file = config_file
+        self.streaming_enabled = stream
         
         # Priority 1: Inline agent creation
         if provider and model:
@@ -583,7 +598,31 @@ class ChatInterface:
         
         return True
     
-    def start_chat(self):
+    async def _handle_streaming_response(self, user_input: str):
+        """Handle streaming response from agent."""
+        print(f"{Fore.MAGENTA}🤖 {self.current_session.agent.config.agent_name}:{Style.RESET_ALL}")
+        
+        # Collect the full response for history
+        full_response = ""
+        
+        try:
+            async for chunk in self.current_session.agent.invoke_async(user_input):
+                print(chunk, end='', flush=True)
+                full_response += chunk
+            
+            print()  # New line after streaming is complete
+            print()  # Extra line for spacing
+            
+            # Add full response to history
+            self.current_session.add_message("assistant", full_response)
+            
+        except Exception as e:
+            print(f"\n{Fore.RED}Error during streaming: {e}{Style.RESET_ALL}")
+            return None
+            
+        return full_response
+    
+    async def start_chat(self):
         """Start the interactive chat loop."""
         if not self.current_session:
             print(f"{Fore.RED}No active chat session. Please initialize an agent first.{Style.RESET_ALL}")
@@ -593,8 +632,10 @@ class ChatInterface:
         
         agent_name = self.current_session.agent.config.agent_name
         model_info = f"{self.current_session.agent.config.model_provider}/{self.current_session.agent.config.model_version}"
+        stream_status = "ON" if self.streaming_enabled else "OFF"
         
         print(f"🤖 Active Agent: {Fore.GREEN}{agent_name}{Style.RESET_ALL} ({model_info})")
+        print(f"🌊 Streaming: {Fore.CYAN}{stream_status}{Style.RESET_ALL}")
         print(f"💡 Type {Fore.GREEN}/help{Style.RESET_ALL} for commands, {Fore.GREEN}/quit{Style.RESET_ALL} to exit")
         print()
         
@@ -617,16 +658,22 @@ class ChatInterface:
                 
                 # Get agent response
                 try:
-                    print(f"{Fore.YELLOW}🤔 Thinking...{Style.RESET_ALL}")
-                    response = self.current_session.agent.invoke(user_input)
-                    
-                    # Print agent response
-                    print(f"{Fore.MAGENTA}🤖 {self.current_session.agent.config.agent_name}:{Style.RESET_ALL}")
-                    print(response)
-                    print()
-                    
-                    # Add agent response to history
-                    self.current_session.add_message("assistant", response)
+                    if self.streaming_enabled:
+                        # Use streaming response
+                        print(f"{Fore.YELLOW}🤔 Thinking...{Style.RESET_ALL}")
+                        await self._handle_streaming_response(user_input)
+                    else:
+                        # Use traditional response
+                        print(f"{Fore.YELLOW}🤔 Thinking...{Style.RESET_ALL}")
+                        response = self.current_session.agent.invoke(user_input)
+                        
+                        # Print agent response
+                        print(f"{Fore.MAGENTA}🤖 {self.current_session.agent.config.agent_name}:{Style.RESET_ALL}")
+                        print(response)
+                        print()
+                        
+                        # Add agent response to history
+                        self.current_session.add_message("assistant", response)
                     
                 except KeyboardInterrupt:
                     print(f"\n{Fore.YELLOW}Interrupted by user{Style.RESET_ALL}")
@@ -689,6 +736,12 @@ Examples:
         help="Directory containing prompt TOML files"
     )
     
+    parser.add_argument(
+        "--stream", "-s",
+        action="store_true",
+        help="Enable streaming mode for real-time token output"
+    )
+    
     return parser
 
 
@@ -712,14 +765,19 @@ def main(args: Optional[List[str]] = None):
         agent_name=parsed_args.agent,
         provider=parsed_args.provider,
         model=parsed_args.model,
-        prompts_dir=parsed_args.prompts_dir
+        prompts_dir=parsed_args.prompts_dir,
+        stream=parsed_args.stream
     )
     
     if not success:
         sys.exit(1)
     
-    # Start chat
-    chat.start_chat()
+    # Start chat (run async if streaming is enabled)
+    if parsed_args.stream or chat.streaming_enabled:
+        asyncio.run(chat.start_chat())
+    else:
+        # For backward compatibility, also support async even when not streaming
+        asyncio.run(chat.start_chat())
 
 
 if __name__ == "__main__":

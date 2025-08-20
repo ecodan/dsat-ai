@@ -8,8 +8,9 @@ An interactive terminal-based chat interface for testing prompts and having conv
 
 **Key Features:**
 - **Zero-config mode**: Auto-detects providers via environment variables
+- **Real-time streaming**: Token-by-token streaming support for all providers
 - **Multiple usage patterns**: Config files, inline creation, or auto-discovery
-- **Interactive commands**: `/help`, `/agents`, `/switch`, `/export`, and more
+- **Interactive commands**: `/help`, `/agents`, `/switch`, `/stream`, `/export`, and more
 - **Flexible prompts**: Multiple directory search strategies and per-agent overrides
 - **Plugin system**: Entry points for custom LLM provider extensions
 - **Session management**: History tracking and conversation export
@@ -18,6 +19,9 @@ An interactive terminal-based chat interface for testing prompts and having conv
 ```bash
 # Zero-config (with API key in environment)
 dsat chat
+
+# Enable real-time streaming
+dsat chat --stream
 
 # Use existing agent configuration
 dsat chat --config agents.json --agent my_assistant
@@ -32,6 +36,7 @@ A unified interface for working with multiple LLM providers through configuratio
 
 **Key Features:**
 - **Multi-provider support**: Anthropic Claude, Google Vertex AI, Ollama (local models)
+- **Async streaming support**: Real-time token streaming with `invoke_async()` method
 - **Configuration-driven**: JSON configs + TOML prompt templates
 - **Comprehensive logging**: Standard Python logging, JSONL files, or custom callbacks
 - **Prompt versioning**: Versioned prompt management with TOML templates
@@ -47,11 +52,18 @@ config = AgentConfig(
     model_family="claude", 
     model_version="claude-3-5-haiku-latest",
     prompt="assistant:v1",
-    provider_auth={"api_key": "your-api-key"}
+    provider_auth={"api_key": "your-api-key"},
+    stream=True  # Enable streaming support
 )
 
 agent = Agent.create(config)
+
+# Traditional response
 response = agent.invoke("Hello, how are you?")
+
+# Streaming response
+async for chunk in agent.invoke_async("Tell me a story"):
+    print(chunk, end='', flush=True)
 ```
 
 ## 📊 [Scryptorum Framework](readme-scryptorum.md)

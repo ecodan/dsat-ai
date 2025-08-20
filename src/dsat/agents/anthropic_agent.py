@@ -1,4 +1,5 @@
 import logging
+from typing import AsyncGenerator
 from .agent import Agent, AgentConfig
 from .agent_logger import CallTimer
 
@@ -157,6 +158,116 @@ class ClaudeLLMAgent(Agent):
             
             self.logger.error(f"Unexpected error in Claude agent: {str(e)}")
             raise
+
+    async def invoke_async(self, user_prompt: str, system_prompt: str = None) -> AsyncGenerator[str, None]:
+        """
+        Send the prompts to Claude and return a streaming async generator of response tokens.
+        
+        :param user_prompt: Specific user prompt
+        :param system_prompt: Optional system prompt override. If None, loads from config via prompt manager.
+        :return: AsyncGenerator yielding response text chunks
+        """
+        # Use model parameters from config, with defaults
+        model_params = self.config.model_parameters or {}
+        max_tokens = model_params.get("max_tokens", 4096)
+        temperature = model_params.get("temperature", 0.0)
+        
+        # Use provided system prompt or load from prompt manager
+        if system_prompt is None:
+            system_prompt = self.get_system_prompt()
+        
+        # Prepare request data for logging
+        request_data = {
+            "user_prompt": user_prompt,
+            "system_prompt": system_prompt,
+            "model_parameters": {
+                "max_tokens": max_tokens,
+                "temperature": temperature
+            }
+        }
+        
+        try:
+            with CallTimer() as timer:
+                # Create streaming request
+                stream = self.client.messages.create(
+                    model=self.config.model_version,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    system=system_prompt,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": user_prompt
+                        }
+                    ],
+                    stream=True
+                )
+                
+                # Collect chunks for logging
+                response_chunks = []
+                
+                # Yield tokens as they arrive
+                for chunk in stream:
+                    if chunk.type == "content_block_delta" and hasattr(chunk, 'delta') and hasattr(chunk.delta, 'text'):
+                        text_chunk = chunk.delta.text
+                        response_chunks.append(text_chunk)
+                        yield text_chunk
+                
+                # After streaming is complete, log the full response
+                full_response = ''.join(response_chunks)
+                self.logger.debug(f"Claude async response complete: {len(full_response)} bytes / {len(full_response.split())} words")
+                
+                # Prepare response data for logging
+                response_data = {
+                    "content": full_response,
+                    "tokens_used": {
+                        "input": None,  # Token usage not available in streaming
+                        "output": None
+                    }
+                }
+                
+                # Log the LLM call if logger is configured
+                if self.call_logger:
+                    self.call_logger.log_llm_call(
+                        request_data=request_data,
+                        response_data=response_data,
+                        duration_ms=timer.duration_ms,
+                        model_provider=self.config.model_provider,
+                        model_version=self.config.model_version
+                    )
+                
+        except Exception as e:
+            # Check if it's specifically an Anthropic API error
+            is_api_error = False
+            if ANTHROPIC_AVAILABLE and APIStatusError is not None and APIConnectionError is not None:
+                is_api_error = isinstance(e, (APIStatusError, APIConnectionError))
+            
+            if is_api_error:
+                # Log API errors
+                if self.call_logger:
+                    self.call_logger.log_llm_call(
+                        request_data=request_data,
+                        response_data={"error": str(e), "error_type": type(e).__name__},
+                        duration_ms=timer.duration_ms if 'timer' in locals() else 0,
+                        model_provider=self.config.model_provider,
+                        model_version=self.config.model_version
+                    )
+                
+                self.logger.error(f"Claude API error in streaming: {str(e)}")
+                raise
+            else:
+                # Handle as general exception (including test cases)
+                if self.call_logger:
+                    self.call_logger.log_llm_call(
+                        request_data=request_data,
+                        response_data={"error": str(e), "error_type": type(e).__name__},
+                        duration_ms=timer.duration_ms if 'timer' in locals() else 0,
+                        model_provider=self.config.model_provider,
+                        model_version=self.config.model_version
+                    )
+                
+                self.logger.error(f"Unexpected error in Claude async agent: {str(e)}")
+                raise
 
     @property
     def model(self) -> str:

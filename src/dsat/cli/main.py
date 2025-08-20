@@ -57,6 +57,12 @@ def main():
         help="Directory containing prompt TOML files"
     )
     
+    chat_parser.add_argument(
+        "--stream", "-s",
+        action="store_true",
+        help="Enable streaming mode for real-time token output"
+    )
+    
     # Scryptorum subcommand
     scryptorum_parser = subparsers.add_parser(
         "scryptorum", 
@@ -96,14 +102,16 @@ def main():
             agent_name=args.agent,
             provider=args.provider,
             model=args.model,
-            prompts_dir=prompts_path
+            prompts_dir=prompts_path,
+            stream=args.stream
         )
         
         if not success:
             sys.exit(1)
         
-        # Start chat
-        chat.start_chat()
+        # Start chat (always run async since chat interface is now async)
+        import asyncio
+        asyncio.run(chat.start_chat())
     elif args.command == "scryptorum":
         # Replace sys.argv with scryptorum args and call scryptorum main
         original_argv = sys.argv[:]

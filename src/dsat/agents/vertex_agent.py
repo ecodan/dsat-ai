@@ -1,4 +1,5 @@
 import logging
+from typing import AsyncGenerator
 from .agent import Agent, AgentConfig
 from .agent_logger import CallTimer
 
@@ -132,6 +133,99 @@ class GoogleVertexAIAgent(Agent):
                 )
             
             self.logger.error(f"Vertex AI API error: {str(e)}")
+            raise
+
+    async def invoke_async(self, user_prompt: str, system_prompt: str = None) -> AsyncGenerator[str, None]:
+        """
+        Send the prompts to Vertex AI and return a streaming async generator of response tokens.
+        
+        :param user_prompt: Specific user prompt
+        :param system_prompt: Optional system prompt override. If None, loads from config via prompt manager.
+        :return: AsyncGenerator yielding response text chunks
+        """
+        # Use model parameters from config, with defaults
+        model_params = self.config.model_parameters or {}
+        temperature = model_params.get("temperature", 0.3)
+        max_output_tokens = model_params.get("max_output_tokens", 20000)
+        
+        # Use provided system prompt or load from prompt manager
+        if system_prompt is None:
+            system_prompt = self.get_system_prompt()
+        
+        # Combine system and user prompts for Vertex AI
+        if system_prompt:
+            full_prompt = f"{system_prompt}\n\n{user_prompt}"
+        else:
+            full_prompt = user_prompt
+        
+        # Prepare request data for logging
+        request_data = {
+            "user_prompt": user_prompt,
+            "system_prompt": system_prompt,
+            "full_prompt": full_prompt,
+            "model_parameters": {
+                "temperature": temperature,
+                "max_output_tokens": max_output_tokens
+            }
+        }
+
+        try:
+            with CallTimer() as timer:
+                # Generate streaming content
+                response_stream = self.client.generate_content(
+                    full_prompt,
+                    generation_config={
+                        "temperature": temperature,
+                        "max_output_tokens": max_output_tokens,
+                    },
+                    stream=True
+                )
+                
+                # Collect chunks for logging
+                response_chunks = []
+                
+                # Yield tokens as they arrive
+                for chunk in response_stream:
+                    if hasattr(chunk, 'text') and chunk.text:
+                        text_chunk = chunk.text
+                        response_chunks.append(text_chunk)
+                        yield text_chunk
+
+            # After streaming is complete, log the full response
+            full_response = ''.join(response_chunks)
+            self.logger.debug(f"Vertex AI async response complete: {len(full_response)} bytes / {len(full_response.split())} words")
+
+            # Prepare response data for logging
+            response_data = {
+                "content": full_response,
+                "tokens_used": {
+                    "input": None,  # Token usage not available in streaming
+                    "output": None
+                }
+            }
+            
+            # Log the LLM call if logger is configured
+            if self.call_logger:
+                self.call_logger.log_llm_call(
+                    request_data=request_data,
+                    response_data=response_data,
+                    duration_ms=timer.duration_ms,
+                    model_provider=self.config.model_provider,
+                    model_version=self.config.model_version
+                )
+
+        except Exception as e:
+            # Log errors
+            if self.call_logger:
+                self.call_logger.log_llm_call(
+                    request_data=request_data,
+                    response_data={"error": str(e), "error_type": type(e).__name__},
+                    duration_ms=timer.duration_ms if 'timer' in locals() else 0,
+                    model_provider=self.config.model_provider,
+                    model_version=self.config.model_version
+                )
+            
+            self.logger.error(f"Vertex AI API error in streaming: {str(e)}")
             raise
 
     @property

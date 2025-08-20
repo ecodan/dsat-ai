@@ -1,6 +1,6 @@
 # Agents System Documentation
 
-The DSAT agents system provides a unified interface for working with multiple LLM providers through a configuration-driven approach. It supports Anthropic Claude and Google Vertex AI models with extensible prompt management.
+The DSAT agents system provides a unified interface for working with multiple LLM providers through a configuration-driven approach. It supports Anthropic Claude, Google Vertex AI, and Ollama models with real-time streaming, extensible prompt management, and comprehensive logging.
 
 ## Quick Start
 
@@ -23,6 +23,7 @@ pip install google-cloud-aiplatform
 
 ```python
 from src.agents.agent import Agent, AgentConfig
+import asyncio
 
 # Create a configuration
 config = AgentConfig(
@@ -32,13 +33,24 @@ config = AgentConfig(
     model_version="claude-3-5-haiku-latest",
     prompt="assistant:v1",
     provider_auth={"api_key": "your-api-key"},
-    model_parameters={"temperature": 0.7, "max_tokens": 4096}
+    model_parameters={"temperature": 0.7, "max_tokens": 4096},
+    stream=True  # Enable streaming support
 )
 
 # Create and use the agent
 agent = Agent.create(config)
+
+# Traditional response
 response = agent.invoke("Hello, how are you?")
 print(response)
+
+# Streaming response
+async def stream_example():
+    async for chunk in agent.invoke_async("Tell me a story"):
+        print(chunk, end='', flush=True)
+    print()  # New line after streaming
+
+asyncio.run(stream_example())
 ```
 
 ## Core Components
@@ -62,7 +74,8 @@ config = AgentConfig(
         "api_key": "your-key"
     },
     custom_configs={},              # Optional: Custom configuration
-    tools=[]                        # Optional: Available tools
+    tools=[],                       # Optional: Available tools
+    stream=False                    # Optional: Enable streaming (default: False)
 )
 ```
 
@@ -82,6 +95,126 @@ agent = Agent.create(
 )
 ```
 
+## Async Streaming Support
+
+All DSAT agents support real-time token streaming for immediate response feedback. Streaming is available across all supported providers (Anthropic, Google Vertex AI, and Ollama).
+
+### Enabling Streaming
+
+Streaming can be enabled through configuration or programmatically:
+
+```python
+# Via configuration
+config = AgentConfig(
+    agent_name="streaming_agent",
+    model_provider="anthropic",
+    model_family="claude",
+    model_version="claude-3-5-haiku-latest",
+    prompt="assistant:v1",
+    provider_auth={"api_key": "your-api-key"},
+    stream=True  # Enable streaming
+)
+
+# Streaming is automatically available for any agent
+agent = Agent.create(config)
+```
+
+### Using Streaming
+
+The `invoke_async()` method returns an async generator that yields response tokens in real-time:
+
+```python
+import asyncio
+
+async def chat_with_streaming():
+    agent = Agent.create(config)
+    
+    print("🤖 Assistant: ", end='', flush=True)
+    async for chunk in agent.invoke_async("Explain quantum computing"):
+        print(chunk, end='', flush=True)
+    print()  # New line when complete
+
+# Run the async function
+asyncio.run(chat_with_streaming())
+```
+
+### Streaming vs Traditional Methods
+
+Both methods are available on every agent:
+
+```python
+agent = Agent.create(config)
+
+# Traditional - returns complete response
+response = agent.invoke("Hello!")
+print(response)  # "Hello! How can I help you today?"
+
+# Streaming - yields tokens as they arrive
+async for chunk in agent.invoke_async("Hello!"):
+    print(chunk, end='', flush=True)
+# Prints: H...e...l...l...o...!... H...o...w... c...a...n... etc.
+```
+
+### Error Handling with Streaming
+
+Streaming includes comprehensive error handling:
+
+```python
+async def robust_streaming():
+    try:
+        async for chunk in agent.invoke_async("Complex question"):
+            print(chunk, end='', flush=True)
+    except Exception as e:
+        print(f"\nStreaming error: {e}")
+        # Fallback to traditional method
+        response = agent.invoke("Complex question")
+        print(response)
+```
+
+### Streaming with Different Providers
+
+Streaming works consistently across all providers:
+
+```python
+# Anthropic Claude
+claude_config = AgentConfig(
+    model_provider="anthropic",
+    model_version="claude-3-5-haiku-latest",
+    # ... other config
+    stream=True
+)
+
+# Google Vertex AI
+vertex_config = AgentConfig(
+    model_provider="google",
+    model_version="gemini-2.0-flash",
+    # ... other config  
+    stream=True
+)
+
+# Ollama (local)
+ollama_config = AgentConfig(
+    model_provider="ollama",
+    model_version="llama3.2",
+    # ... other config
+    stream=True
+)
+
+# All support the same streaming interface
+for config in [claude_config, vertex_config, ollama_config]:
+    agent = Agent.create(config)
+    async for chunk in agent.invoke_async("Hello"):
+        print(chunk, end='', flush=True)
+```
+
+### Streaming Performance Notes
+
+- **Low latency**: First tokens arrive quickly
+- **Memory efficient**: Processes tokens incrementally  
+- **Logging support**: Full LLM call logging maintained for streaming
+- **Thread-safe**: Safe for concurrent use
+- **Backward compatible**: Traditional `invoke()` unchanged
+
 ## Supported Providers
 
 ### Anthropic Claude
@@ -97,7 +230,8 @@ config = AgentConfig(
     model_parameters={
         "temperature": 0.7,
         "max_tokens": 4096
-    }
+    },
+    stream=True  # Enable real-time streaming
 )
 ```
 
@@ -119,7 +253,8 @@ config = AgentConfig(
     model_parameters={
         "temperature": 0.3,
         "max_output_tokens": 20000
-    }
+    },
+    stream=True  # Enable real-time streaming
 )
 ```
 
@@ -140,7 +275,8 @@ config = AgentConfig(
     },
     model_parameters={
         "temperature": 0.7
-    }
+    },
+    stream=True  # Enable real-time streaming
 )
 ```
 
@@ -150,7 +286,7 @@ config = AgentConfig(
 **Prerequisites:**
 - Ollama installed and running (`ollama serve`)
 - Required model available (`ollama pull qwen`)
-- `requests` package installed (`pip install requests`)
+- `requests` and `aiohttp` packages (included in DSAT dependencies)
 
 ## Prompt Management
 

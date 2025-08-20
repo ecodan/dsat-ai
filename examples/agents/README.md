@@ -5,7 +5,8 @@ This directory contains examples demonstrating the DSAT agents framework, which 
 ## Overview
 
 The agents framework supports:
-- **Multiple LLM providers**: Anthropic, OpenAI, Ollama, etc.
+- **Multiple LLM providers**: Anthropic, Google Vertex AI, Ollama, etc.
+- **Real-time streaming**: Token-by-token async streaming with `invoke_async()`
 - **Flexible configuration**: JSON-based agent configs with TOML prompts
 - **Comprehensive logging**: Standard Python logging, JSONL files, or custom callbacks
 - **Agent factory patterns**: Easy creation from configurations

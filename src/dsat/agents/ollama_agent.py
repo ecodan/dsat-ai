@@ -1,5 +1,8 @@
 import logging
 import requests
+import asyncio
+import json
+from typing import AsyncGenerator
 from .agent import Agent, AgentConfig
 from .agent_logger import CallTimer
 
@@ -8,6 +11,12 @@ try:
     REQUESTS_AVAILABLE = True
 except ImportError:
     REQUESTS_AVAILABLE = False
+
+try:
+    import aiohttp
+    AIOHTTP_AVAILABLE = True
+except ImportError:
+    AIOHTTP_AVAILABLE = False
 
 
 class OllamaAgent(Agent):
@@ -147,6 +156,133 @@ class OllamaAgent(Agent):
                 )
             
             self.logger.error(f"Unexpected error in Ollama agent: {str(e)}")
+            raise
+
+    async def invoke_async(self, user_prompt: str, system_prompt: str = None) -> AsyncGenerator[str, None]:
+        """
+        Send the prompts to Ollama and return a streaming async generator of response tokens.
+        
+        :param user_prompt: Specific user prompt
+        :param system_prompt: Optional system prompt override. If None, loads from config via prompt manager.
+        :return: AsyncGenerator yielding response text chunks
+        """
+        if not AIOHTTP_AVAILABLE:
+            raise ImportError("aiohttp package is required for async streaming in OllamaAgent. Install with: pip install aiohttp")
+        
+        # Use model parameters from config, with defaults
+        model_params = self.config.model_parameters or {}
+        temperature = model_params.get("temperature", 0.0)
+        
+        # Use provided system prompt or load from prompt manager
+        if system_prompt is None:
+            system_prompt = self.get_system_prompt()
+        
+        # Prepare the prompt - combine system and user prompts
+        if system_prompt:
+            full_prompt = f"{system_prompt}\n\n{user_prompt}"
+        else:
+            full_prompt = user_prompt
+        
+        # Prepare request data for logging
+        request_data = {
+            "user_prompt": user_prompt,
+            "system_prompt": system_prompt,
+            "model_parameters": {
+                "temperature": temperature
+            }
+        }
+        
+        # Prepare the request payload
+        payload = {
+            "model": self.config.model_version,
+            "prompt": full_prompt,
+            "stream": True,
+            "options": {
+                "temperature": temperature
+            }
+        }
+        
+        try:
+            with CallTimer() as timer:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        self.api_url,
+                        json=payload,
+                        headers={"Content-Type": "application/json"}
+                    ) as response:
+                        response.raise_for_status()
+                        
+                        # Collect chunks for logging
+                        response_chunks = []
+                        
+                        # Process streaming NDJSON response
+                        async for line in response.content:
+                            line = line.decode('utf-8').strip()
+                            if not line:
+                                continue
+                            
+                            try:
+                                chunk_data = json.loads(line)
+                                if "response" in chunk_data:
+                                    text_chunk = chunk_data["response"]
+                                    response_chunks.append(text_chunk)
+                                    yield text_chunk
+                                    
+                                # Check if streaming is done
+                                if chunk_data.get("done", False):
+                                    break
+                            except json.JSONDecodeError:
+                                # Skip malformed JSON lines
+                                continue
+                
+                # After streaming is complete, log the full response
+                full_response = ''.join(response_chunks)
+                self.logger.debug(f"Ollama async response complete: {len(full_response)} bytes / {len(full_response.split())} words")
+                
+                # Prepare response data for logging
+                response_log_data = {
+                    "content": full_response,
+                    "tokens_used": {
+                        "input": None,  # Token usage not available in streaming
+                        "output": None
+                    }
+                }
+                
+                # Log the LLM call if logger is configured
+                if self.call_logger:
+                    self.call_logger.log_llm_call(
+                        request_data=request_data,
+                        response_data=response_log_data,
+                        duration_ms=timer.duration_ms,
+                        model_provider=self.config.model_provider,
+                        model_version=self.config.model_version
+                    )
+                
+        except aiohttp.ClientError as e:
+            # Log API errors
+            if self.call_logger:
+                self.call_logger.log_llm_call(
+                    request_data=request_data,
+                    response_data={"error": str(e), "error_type": type(e).__name__},
+                    duration_ms=timer.duration_ms if 'timer' in locals() else 0,
+                    model_provider=self.config.model_provider,
+                    model_version=self.config.model_version
+                )
+            
+            self.logger.error(f"Ollama API error in streaming: {str(e)}")
+            raise
+        except Exception as e:
+            # Log unexpected errors
+            if self.call_logger:
+                self.call_logger.log_llm_call(
+                    request_data=request_data,
+                    response_data={"error": str(e), "error_type": type(e).__name__},
+                    duration_ms=timer.duration_ms if 'timer' in locals() else 0,
+                    model_provider=self.config.model_provider,
+                    model_version=self.config.model_version
+                )
+            
+            self.logger.error(f"Unexpected error in Ollama async agent: {str(e)}")
             raise
 
     @property

@@ -3,9 +3,10 @@ EchoAgent - A simple test agent that echoes inputs for testing purposes.
 """
 
 import logging
+import asyncio
 from pathlib import Path
-from typing import Optional, Union
-from src.agents.agent import Agent, AgentConfig
+from typing import Optional, Union, AsyncGenerator
+from dsat.agents.agent import Agent, AgentConfig
 
 
 class EchoAgent(Agent):
@@ -63,6 +64,56 @@ class EchoAgent(Agent):
         
         return response
 
+    async def invoke_async(self, user_prompt: str, system_prompt: str = None) -> AsyncGenerator[str, None]:
+        """
+        Echo back the user prompt with system context, yielding characters one by one.
+        
+        :param user_prompt: Specific user prompt
+        :param system_prompt: Optional system prompt override. If None, loads from config via prompt manager.
+        :return: AsyncGenerator yielding response text chunks
+        """
+        self.call_count += 1
+        
+        # Use provided system prompt or load from prompt manager
+        if system_prompt is None:
+            system_prompt = self.get_system_prompt()
+        
+        # Log the interaction for testing
+        self.logger.debug(f"EchoAgent async call #{self.call_count}")
+        self.logger.debug(f"System prompt: {system_prompt}")
+        self.logger.debug(f"User prompt: {user_prompt}")
+        
+        # Create formatted response
+        if system_prompt:
+            response = f"[{system_prompt.strip()}] Echo: {user_prompt}"
+        else:
+            response = f"Echo: {user_prompt}"
+        
+        # Yield response character by character with small delays to simulate streaming
+        for char in response:
+            yield char
+            await asyncio.sleep(0.01)  # Small delay to simulate realistic streaming
+        
+        # Log the LLM call if logger is configured
+        if self.call_logger:
+            self.call_logger.log_llm_call(
+                request_data={
+                    "user_prompt": user_prompt,
+                    "system_prompt": system_prompt,
+                    "model_parameters": self.config.model_parameters or {}
+                },
+                response_data={
+                    "content": response,
+                    "tokens_used": {
+                        "input": len(user_prompt.split()),
+                        "output": len(response.split())
+                    }
+                },
+                duration_ms=len(response) * 10.0,  # Simulate streaming duration
+                model_provider=self.config.model_provider,
+                model_version=self.config.model_version
+            )
+
     @property
     def model(self) -> str:
         """Return the configured model version."""
@@ -86,7 +137,7 @@ def create_echo_agent_config(agent_name: str = "echo_test", prompt: str = "echo:
 # Register EchoAgent with the Agent factory
 def register_echo_agent():
     """Register EchoAgent with the Agent.create factory method."""
-    from src.agents.agent import Agent
+    from dsat.agents.agent import Agent
     
     # Store original create method
     original_create = Agent.create
