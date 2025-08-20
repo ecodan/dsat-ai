@@ -342,6 +342,102 @@ class TestClaudeLLMAgent:
         assert call_args['max_tokens'] == 8192
         assert call_args['model'] == "claude-3-opus"
 
+    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
+    @patch('src.agents.anthropic_agent.Anthropic')
+    def test_invoke_with_conversation_history(self, mock_anthropic, claude_config, logger, temp_prompts_dir):
+        """Test invoke method with conversation history."""
+        from src.cli.memory import ConversationMessage
+        
+        mock_content = Mock()
+        mock_content.text = "I can see you asked about Python earlier."
+        mock_response = Mock()
+        mock_response.content = [mock_content]
+        
+        mock_client = Mock()
+        mock_client.messages.create.return_value = mock_response
+        mock_anthropic.return_value = mock_client
+        
+        agent = ClaudeLLMAgent(config=claude_config, logger=logger, prompts_dir=temp_prompts_dir)
+        
+        # Create conversation history
+        history = [
+            ConversationMessage("user", "What is Python?", "2023-01-01T00:00:00", 10),
+            ConversationMessage("assistant", "Python is a programming language.", "2023-01-01T00:01:00", 15)
+        ]
+        
+        result = agent.invoke("What did I just ask about?", history=history)
+        
+        assert result == "I can see you asked about Python earlier."
+        
+        # Verify history was included in messages
+        call_args = mock_client.messages.create.call_args[1]
+        messages = call_args['messages']
+        
+        # Should have 3 messages: 2 from history + 1 current
+        assert len(messages) == 3
+        assert messages[0]['role'] == 'user'
+        assert messages[0]['content'] == "What is Python?"
+        assert messages[1]['role'] == 'assistant' 
+        assert messages[1]['content'] == "Python is a programming language."
+        assert messages[2]['role'] == 'user'
+        assert messages[2]['content'] == "What did I just ask about?"
+
+    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
+    @patch('src.agents.anthropic_agent.Anthropic')
+    def test_invoke_without_history_backward_compatibility(self, mock_anthropic, claude_config, logger, temp_prompts_dir):
+        """Test invoke method still works without history parameter (backward compatibility)."""
+        mock_content = Mock()
+        mock_content.text = "Hello! How can I help you?"
+        mock_response = Mock()
+        mock_response.content = [mock_content]
+        
+        mock_client = Mock()
+        mock_client.messages.create.return_value = mock_response
+        mock_anthropic.return_value = mock_client
+        
+        agent = ClaudeLLMAgent(config=claude_config, logger=logger, prompts_dir=temp_prompts_dir)
+        
+        # Call without history parameter
+        result = agent.invoke("Hello")
+        
+        assert result == "Hello! How can I help you?"
+        
+        # Verify only current message was sent
+        call_args = mock_client.messages.create.call_args[1]
+        messages = call_args['messages']
+        
+        assert len(messages) == 1
+        assert messages[0]['role'] == 'user'
+        assert messages[0]['content'] == "Hello"
+
+    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True) 
+    @patch('src.agents.anthropic_agent.Anthropic')
+    def test_invoke_with_empty_history(self, mock_anthropic, claude_config, logger, temp_prompts_dir):
+        """Test invoke method with empty history list."""
+        mock_content = Mock()
+        mock_content.text = "Hello!"
+        mock_response = Mock()
+        mock_response.content = [mock_content]
+        
+        mock_client = Mock()
+        mock_client.messages.create.return_value = mock_response
+        mock_anthropic.return_value = mock_client
+        
+        agent = ClaudeLLMAgent(config=claude_config, logger=logger, prompts_dir=temp_prompts_dir)
+        
+        # Call with empty history
+        result = agent.invoke("Hello", history=[])
+        
+        assert result == "Hello!"
+        
+        # Verify only current message was sent
+        call_args = mock_client.messages.create.call_args[1]
+        messages = call_args['messages']
+        
+        assert len(messages) == 1
+        assert messages[0]['role'] == 'user'
+        assert messages[0]['content'] == "Hello"
+
     def test_backward_compatibility_missing_model(self, logger, temp_prompts_dir):
         """Test backward compatibility mode requires both api_key and model."""
         with pytest.raises(ValueError, match="Either config must be provided, or both api_key and model must be provided"):

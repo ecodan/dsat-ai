@@ -14,11 +14,11 @@ import requests
 import asyncio
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 # Add color support for terminal output
 try:
-    from colorama import init, Fore, Back, Style
+    from colorama import init, Fore, Style
 
     init(autoreset=True)
     COLORS_AVAILABLE = True
@@ -36,28 +36,125 @@ except ImportError:
     COLORS_AVAILABLE = False
 
 from ..agents.agent import Agent, AgentConfig
+from .memory import MemoryManager, ConversationMessage, TokenCounter
 
 
 class ChatSession:
-    """Manages a chat session with conversation history and state."""
+    """Manages a chat session with conversation history, memory management, and persistence."""
 
-    def __init__(self, agent: Agent):
+    def __init__(self, agent: Agent, session_id: Optional[str] = None):
         self.agent = agent
-        self.history = []
         self.start_time = datetime.now()
+        self.session_id = session_id
+        
+        # Initialize memory manager with agent config
+        self.memory_manager = MemoryManager(
+            max_tokens=agent.config.max_memory_tokens,
+            storage_dir=Path.home() / ".dsat" / "chat_history"
+        )
+        
+        # Load existing conversation if session_id provided and memory enabled
+        if session_id and agent.config.memory_enabled:
+            self.messages, stored_config = self.memory_manager.load_conversation(session_id)
+            if not self.messages:
+                self.messages = []
+        else:
+            self.messages = []
+            # Generate session ID if not provided
+            if not self.session_id:
+                self.session_id = self.memory_manager.get_session_id(agent.config.agent_name)
+
+    @property
+    def history(self) -> List[Dict[str, Any]]:
+        """
+        Legacy property for backward compatibility.
+        Converts ConversationMessage objects to dict format.
+        """
+        return [msg.to_dict() for msg in self.messages]
 
     def add_message(self, role: str, content: str):
-        """Add a message to the conversation history."""
-        self.history.append(
-            {"timestamp": datetime.now().isoformat(), "role": role, "content": content}
+        """Add a message to the conversation history with memory management."""
+        # Truncate response if it's too long and from assistant
+        if role == "assistant" and len(content) > self.agent.config.response_truncate_length:
+            content = self.memory_manager.truncate_response(
+                content, self.agent.config.response_truncate_length
+            )
+        
+        # Create new message
+        message = ConversationMessage(
+            role=role,
+            content=content,
+            timestamp=datetime.now().isoformat(),
+            tokens=TokenCounter.estimate_tokens(content)
         )
+        
+        self.messages.append(message)
+        
+        # Manage memory if enabled
+        if self.agent.config.memory_enabled:
+            # Compact memory if we exceed the limit
+            total_tokens = self.memory_manager.calculate_total_tokens(self.messages)
+            if total_tokens > self.agent.config.max_memory_tokens:
+                self.messages = self.memory_manager.compact_memory(self.messages)
+            
+            # Save to persistent storage
+            self._save_conversation()
+
+    def clear_history(self):
+        """Clear conversation history."""
+        self.messages.clear()
+        if self.agent.config.memory_enabled:
+            self._save_conversation()
+
+    def compact_memory(self, preserve_recent: int = 5):
+        """Manually compact memory while preserving recent messages."""
+        if self.agent.config.memory_enabled:
+            self.messages = self.memory_manager.compact_memory(self.messages, preserve_recent)
+            self._save_conversation()
+
+    def get_memory_stats(self) -> Dict[str, Any]:
+        """Get current memory usage statistics."""
+        return self.memory_manager.get_memory_stats(self.messages)
+
+    def get_conversation_context(self) -> List[ConversationMessage]:
+        """
+        Get conversation history for agent context.
+        
+        Returns the current messages list which is already compacted
+        and within memory limits.
+        
+        :return: List of ConversationMessage objects for agent context
+        """
+        return self.messages.copy()
+
+    def _save_conversation(self):
+        """Save conversation to persistent storage."""
+        if self.session_id and self.agent.config.memory_enabled:
+            try:
+                agent_config_dict = {
+                    "agent_name": self.agent.config.agent_name,
+                    "model_provider": self.agent.config.model_provider,
+                    "model_family": self.agent.config.model_family,
+                    "model_version": self.agent.config.model_version,
+                    "prompt": self.agent.config.prompt
+                }
+                self.memory_manager.save_conversation(
+                    self.session_id, 
+                    self.messages,
+                    agent_config_dict
+                )
+            except Exception as e:
+                # Don't crash if save fails, just continue
+                print(f"Warning: Could not save conversation: {e}")
 
     def export_conversation(self, file_path: Path):
         """Export conversation history to a JSON file."""
         export_data = {
             "session_start": self.start_time.isoformat(),
-            "agent_config": self.agent.config.to_dict(),
+            "session_id": self.session_id,
+            "agent_config": self.agent.config.__dict__,
             "conversation": self.history,
+            "memory_stats": self.get_memory_stats()
         }
 
         with open(file_path, "w") as f:
@@ -115,6 +212,12 @@ class ChatInterface:
         )
         print(
             f"  {Fore.GREEN}/clear{Style.RESET_ALL}                - Clear conversation history"
+        )
+        print(
+            f"  {Fore.GREEN}/compact{Style.RESET_ALL}              - Compact memory to save space"
+        )
+        print(
+            f"  {Fore.GREEN}/memory{Style.RESET_ALL}               - Show memory usage statistics"
         )
         print(
             f"  {Fore.GREEN}/export <file>{Style.RESET_ALL}        - Export conversation to file"
@@ -230,6 +333,10 @@ class ChatInterface:
             self._show_history()
         elif cmd == "clear":
             self._clear_history()
+        elif cmd == "compact":
+            self._compact_memory()
+        elif cmd == "memory":
+            self._show_memory_stats()
         elif cmd == "export":
             if len(parts) < 2:
                 print(f"{Fore.RED}Usage: /export <filename>{Style.RESET_ALL}")
@@ -270,26 +377,91 @@ class ChatInterface:
         print(f"{Fore.GREEN}Streaming mode {status}.{Style.RESET_ALL}")
 
     def _show_history(self):
-        """Show conversation history."""
+        """Show conversation history with memory stats."""
         if not self.current_session or not self.current_session.history:
             print(f"{Fore.YELLOW}No conversation history.{Style.RESET_ALL}")
             return
 
-        print(f"\n{Fore.YELLOW}Conversation History:{Style.RESET_ALL}")
+        # Show memory stats first if memory is enabled
+        if self.current_session.agent.config.memory_enabled:
+            stats = self.current_session.get_memory_stats()
+            print(f"\n{Fore.YELLOW}Conversation History ({stats['total_messages']} messages, {stats['total_tokens']} tokens, {stats['memory_usage_percent']}% memory used):{Style.RESET_ALL}")
+        else:
+            print(f"\n{Fore.YELLOW}Conversation History:{Style.RESET_ALL}")
+        
         for msg in self.current_session.history:
             role_color = Fore.BLUE if msg["role"] == "user" else Fore.MAGENTA
+            content_preview = msg['content'][:100] + "..." if len(msg['content']) > 100 else msg['content']
             print(
-                f"{role_color}{msg['role'].upper()}:{Style.RESET_ALL} {msg['content'][:100]}..."
+                f"{role_color}{msg['role'].upper()}:{Style.RESET_ALL} {content_preview}"
             )
         print()
 
     def _clear_history(self):
         """Clear conversation history."""
         if self.current_session:
-            self.current_session.history.clear()
+            self.current_session.clear_history()
             print(f"{Fore.GREEN}Conversation history cleared.{Style.RESET_ALL}")
         else:
             print(f"{Fore.YELLOW}No active session.{Style.RESET_ALL}")
+
+    def _compact_memory(self):
+        """Compact conversation memory to reduce token usage."""
+        if not self.current_session:
+            print(f"{Fore.YELLOW}No active session.{Style.RESET_ALL}")
+            return
+
+        if not self.current_session.agent.config.memory_enabled:
+            print(f"{Fore.YELLOW}Memory management is disabled for this agent.{Style.RESET_ALL}")
+            return
+
+        # Get stats before compaction
+        before_stats = self.current_session.get_memory_stats()
+        
+        # Compact memory
+        self.current_session.compact_memory()
+        
+        # Get stats after compaction
+        after_stats = self.current_session.get_memory_stats()
+        
+        print(f"{Fore.GREEN}Memory compacted successfully!{Style.RESET_ALL}")
+        print(f"Messages: {before_stats['total_messages']} → {after_stats['total_messages']}")
+        print(f"Tokens: {before_stats['total_tokens']} → {after_stats['total_tokens']}")
+        print(f"Memory usage: {before_stats['memory_usage_percent']}% → {after_stats['memory_usage_percent']}%")
+
+    def _show_memory_stats(self):
+        """Show current memory usage statistics."""
+        if not self.current_session:
+            print(f"{Fore.YELLOW}No active session.{Style.RESET_ALL}")
+            return
+
+        if not self.current_session.agent.config.memory_enabled:
+            print(f"{Fore.YELLOW}Memory management is disabled for this agent.{Style.RESET_ALL}")
+            return
+
+        stats = self.current_session.get_memory_stats()
+        
+        print(f"\n{Fore.YELLOW}Memory Statistics:{Style.RESET_ALL}")
+        print(f"  Total messages: {Fore.CYAN}{stats['total_messages']}{Style.RESET_ALL}")
+        print(f"  Total tokens: {Fore.CYAN}{stats['total_tokens']}{Style.RESET_ALL}")
+        print(f"  Total characters: {Fore.CYAN}{stats['total_characters']}{Style.RESET_ALL}")
+        print(f"  Memory limit: {Fore.CYAN}{stats['max_tokens']}{Style.RESET_ALL} tokens")
+        print(f"  Memory usage: {Fore.CYAN}{stats['memory_usage_percent']}%{Style.RESET_ALL}")
+        print(f"  Tokens remaining: {Fore.CYAN}{stats['tokens_remaining']}{Style.RESET_ALL}")
+        
+        # Color-code the usage percentage
+        usage_color = Fore.GREEN
+        if stats['memory_usage_percent'] > 80:
+            usage_color = Fore.RED
+        elif stats['memory_usage_percent'] > 60:
+            usage_color = Fore.YELLOW
+        
+        print(f"  Status: {usage_color}{'Memory full' if stats['memory_usage_percent'] >= 100 else 'OK'}{Style.RESET_ALL}")
+        
+        if stats['memory_usage_percent'] > 90:
+            print(f"\n{Fore.YELLOW}💡 Consider using {Fore.GREEN}/compact{Fore.YELLOW} to reduce memory usage.{Style.RESET_ALL}")
+        
+        print()
 
     def _export_conversation(self, filename: str):
         """Export conversation to file."""
@@ -700,7 +872,14 @@ class ChatInterface:
         full_response = ""
 
         try:
-            async for chunk in self.current_session.agent.invoke_async(user_input):
+            # Pass conversation history if memory is enabled
+            if self.current_session.agent.config.memory_enabled:
+                history = self.current_session.get_conversation_context()
+                async_generator = self.current_session.agent.invoke_async(user_input, history=history)
+            else:
+                async_generator = self.current_session.agent.invoke_async(user_input)
+                
+            async for chunk in async_generator:
                 print(chunk, end="", flush=True)
                 full_response += chunk
 
@@ -734,6 +913,20 @@ class ChatInterface:
             f"🤖 Active Agent: {Fore.GREEN}{agent_name}{Style.RESET_ALL} ({model_info})"
         )
         print(f"🌊 Streaming: {Fore.CYAN}{stream_status}{Style.RESET_ALL}")
+        
+        # Show memory status if enabled
+        if self.current_session.agent.config.memory_enabled:
+            stats = self.current_session.get_memory_stats()
+            memory_status = f"{stats['memory_usage_percent']}% used"
+            memory_color = Fore.GREEN
+            if stats['memory_usage_percent'] > 80:
+                memory_color = Fore.RED
+            elif stats['memory_usage_percent'] > 60:
+                memory_color = Fore.YELLOW
+            print(f"🧠 Memory: {memory_color}{memory_status}{Style.RESET_ALL} ({stats['total_messages']} messages)")
+        else:
+            print(f"🧠 Memory: {Fore.YELLOW}Disabled{Style.RESET_ALL}")
+        
         print(
             f"💡 Type {Fore.GREEN}/help{Style.RESET_ALL} for commands, {Fore.GREEN}/quit{Style.RESET_ALL} to exit"
         )
@@ -765,7 +958,13 @@ class ChatInterface:
                     else:
                         # Use traditional response
                         print(f"{Fore.YELLOW}🤔 Thinking...{Style.RESET_ALL}")
-                        response = self.current_session.agent.invoke(user_input)
+                        
+                        # Pass conversation history if memory is enabled
+                        if self.current_session.agent.config.memory_enabled:
+                            history = self.current_session.get_conversation_context()
+                            response = self.current_session.agent.invoke(user_input, history=history)
+                        else:
+                            response = self.current_session.agent.invoke(user_input)
 
                         # Print agent response
                         print(

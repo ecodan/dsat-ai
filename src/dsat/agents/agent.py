@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, List, Union, TYPE_CHECKING, AsyncGenerator
 
 if TYPE_CHECKING:
-    pass
+    from ..cli.memory import ConversationMessage
 
 # Entry points for plugin discovery
 try:
@@ -86,6 +86,12 @@ class AgentConfig:
         FUTURE: List of all MCP tools available to the agent
     stream : bool, optional
         Enable token streaming for supported providers (default: False)
+    memory_enabled : bool, optional
+        Enable/disable chat history persistence (default: True)
+    max_memory_tokens : int, optional
+        Maximum tokens to keep in conversation memory (default: 8000)
+    response_truncate_length : int, optional
+        Truncate responses longer than this character count (default: 1000)
 
     Model Separation with _models section:
     -------------------------------------
@@ -154,6 +160,10 @@ class AgentConfig:
     tools: Optional[List[str]] = field(default_factory=list)  # FUTURE: MCP tools
     prompts_dir: Optional[str] = None  # Optional prompts directory override
     stream: bool = False  # Enable token streaming for supported providers
+    # Memory configuration
+    memory_enabled: bool = True  # Enable/disable chat history persistence
+    max_memory_tokens: int = 8000  # Maximum tokens to keep in conversation memory
+    response_truncate_length: int = 1000  # Truncate responses longer than this
 
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> "AgentConfig":
@@ -188,6 +198,9 @@ class AgentConfig:
         config_data.setdefault("tools", [])
         config_data.setdefault("prompts_dir", None)
         config_data.setdefault("stream", False)
+        config_data.setdefault("memory_enabled", True)
+        config_data.setdefault("max_memory_tokens", 8000)
+        config_data.setdefault("response_truncate_length", 1000)
 
         return cls(**config_data)
 
@@ -588,25 +601,29 @@ class Agent(metaclass=ABCMeta):
         )
 
     @abstractmethod
-    def invoke(self, user_prompt: str, system_prompt: Optional[str] = None) -> str:
+    def invoke(self, user_prompt: str, system_prompt: Optional[str] = None, 
+              history: Optional[List["ConversationMessage"]] = None) -> str:
         """
         Send the prompts to the LLM and return the response.
 
         :param user_prompt: Specific user prompt
         :param system_prompt: Optional system prompt override. If None, loads from config via prompt manager.
+        :param history: Optional conversation history for context
         :return: Text of response
         """
         pass
 
     @abstractmethod
     async def invoke_async(
-        self, user_prompt: str, system_prompt: Optional[str] = None
+        self, user_prompt: str, system_prompt: Optional[str] = None,
+        history: Optional[List["ConversationMessage"]] = None
     ) -> AsyncGenerator[str, None]:
         """
         Send the prompts to the LLM and return a streaming async generator of response tokens.
 
         :param user_prompt: Specific user prompt
         :param system_prompt: Optional system prompt override. If None, loads from config via prompt manager.
+        :param history: Optional conversation history for context
         :return: AsyncGenerator yielding response text chunks
         """
         pass

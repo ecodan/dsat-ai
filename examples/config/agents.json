@@ -7,7 +7,16 @@
       "provider_auth": {
         "base_url": "http://localhost:11434"
       }
+    },
+    "local-gemma": {
+      "model_provider": "ollama",
+      "model_family": "gemma",
+      "model_version": "gemma3n",
+      "provider_auth": {
+        "base_url": "http://localhost:11434"
+      }
     }
+
   },
   "pirate": {
     "model_provider": "ollama",
@@ -27,10 +36,13 @@
         "file_path": "./demo/logs/pirate_calls.jsonl",
         "level": "standard"
       }
-    }
+    },
+    "memory_enabled": true,
+    "max_memory_tokens": 8000,
+    "response_truncate_length": 1000
   },
   "shakespeare": {
-    "model_id": "local-qwen",
+    "model_id": "local-gemma",
     "prompt": "shakespeare:v1",
     "custom_configs": {
       "logging": {

@@ -78,8 +78,10 @@ Once in the chat interface, use these commands:
 | `/providers` | Show available LLM providers (built-in + plugins) |
 | `/switch <agent>` | Switch to a different agent mid-conversation |
 | `/stream` | Toggle real-time streaming mode (ON/OFF) |
-| `/history` | Display conversation history |
+| `/history` | Display conversation history with memory usage |
 | `/clear` | Clear conversation history |
+| `/compact` | Compact memory to reduce token usage |
+| `/memory` | Show detailed memory usage statistics |
 | `/export <file>` | Export conversation to JSON file |
 | `/quit` or `/exit` | Exit the chat interface |
 
@@ -134,6 +136,161 @@ Once in the chat interface, use these commands:
       "api_key": "your-api-key"
     },
     "stream": true
+  }
+}
+```
+
+### Memory Configuration
+
+The chat CLI includes intelligent memory management to handle long conversations efficiently. Memory settings can be configured per agent:
+
+```json
+{
+  "my_assistant": {
+    "model_provider": "anthropic",
+    "model_family": "claude",
+    "model_version": "claude-3-5-haiku-latest", 
+    "prompt": "assistant:v1",
+    "provider_auth": {
+      "api_key": "your-api-key"
+    },
+    
+    // Memory Configuration (all optional)
+    "memory_enabled": true,           // Enable conversation memory (default: true)
+    "max_memory_tokens": 8000,        // Token limit for conversations (default: 8000)
+    "response_truncate_length": 1000  // Truncate long responses (default: 1000)
+  }
+}
+```
+
+#### Memory Configuration Options
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `memory_enabled` | boolean | `true` | Enable/disable conversation history persistence |
+| `max_memory_tokens` | integer | `8000` | Maximum tokens to keep in conversation memory |
+| `response_truncate_length` | integer | `1000` | Truncate assistant responses longer than this |
+
+#### Memory Configuration Examples
+
+**High-Memory Agent (Long Research Sessions):**
+```json
+{
+  "research_assistant": {
+    "model_provider": "anthropic",
+    "model_family": "claude",
+    "model_version": "claude-3-5-sonnet-latest",
+    "prompt": "research:v1",
+    "memory_enabled": true,
+    "max_memory_tokens": 16000,      // Higher limit for long conversations
+    "response_truncate_length": 2000  // Allow longer detailed responses
+  }
+}
+```
+
+**Low-Memory Agent (Quick Tasks):**
+```json
+{
+  "quick_helper": {
+    "model_provider": "anthropic",
+    "model_family": "claude",
+    "model_version": "claude-3-5-haiku-latest",
+    "prompt": "assistant:v1",
+    "memory_enabled": true,
+    "max_memory_tokens": 2000,       // Lower limit for simple interactions
+    "response_truncate_length": 500   // Concise responses
+  }
+}
+```
+
+**Memory-Disabled Agent (Stateless):**
+```json
+{
+  "stateless_agent": {
+    "model_provider": "anthropic",
+    "model_family": "claude",
+    "model_version": "claude-3-5-haiku-latest",
+    "prompt": "assistant:v1",
+    "memory_enabled": false          // No conversation history maintained
+  }
+}
+```
+
+#### Memory Guidelines
+
+**Token Limits (`max_memory_tokens`):**
+- **Small (1000-2000)**: Quick Q&A, simple tasks
+- **Medium (4000-8000)**: Normal conversations, default setting  
+- **Large (12000-16000)**: Long research sessions, coding assistance
+- **Very Large (20000+)**: Extended analysis, document review
+
+**Response Truncation (`response_truncate_length`):**
+- **Short (300-500)**: Mobile-friendly, quick responses
+- **Medium (800-1000)**: Standard setting, balanced
+- **Long (1500-2000)**: Detailed explanations, technical content
+- **Very Long (3000+)**: Documentation, extensive analysis
+
+#### Memory Commands
+
+Use these commands during chat to manage memory:
+
+```bash
+# Check current memory usage
+/memory
+
+# View conversation with memory stats
+/history
+
+# Manually reduce memory usage
+/compact
+
+# Clear all conversation history
+/clear
+```
+
+#### Memory Status Display
+
+The chat interface shows memory status with color-coded indicators:
+
+- 🟢 **Green** (0-60%): Normal usage
+- 🟡 **Yellow** (60-80%): High usage
+- 🔴 **Red** (80%+): Near/at limit, compaction recommended
+
+Example display:
+```
+🤖 Active Agent: research_assistant (anthropic/claude-3-5-sonnet-latest)
+🌊 Streaming: ON
+🧠 Memory: 75% used (42 messages)
+💡 Type /help for commands, /quit to exit
+```
+
+#### Automatic Memory Management
+
+The chat CLI automatically manages memory by:
+
+1. **Token Counting**: Estimates tokens for all messages
+2. **Response Truncation**: Cuts long responses with "..." indicator
+3. **Smart Compaction**: Removes older messages while preserving recent context
+4. **Persistent Storage**: Saves conversations to `~/.dsat/chat_history/`
+
+#### Memory Storage
+
+Conversations are automatically saved as JSON files:
+
+```json
+{
+  "session_id": "research_assistant_20250120",
+  "timestamp": "2025-01-20T10:30:00",
+  "agent_config": {
+    "agent_name": "research_assistant",
+    "model_provider": "anthropic",
+    "model_version": "claude-3-5-sonnet-latest"
+  },
+  "messages": [...],
+  "total_tokens": 1234,
+  "memory_stats": {
+    "total_messages": 42,
+    "memory_usage_percent": 75.0
   }
 }
 ```

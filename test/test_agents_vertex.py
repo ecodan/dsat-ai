@@ -445,3 +445,126 @@ class TestGoogleVertexAIAgent:
                 "max_output_tokens": 8192
             }
         )
+
+    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('src.agents.vertex_agent.vertexai')
+    @patch('src.agents.vertex_agent.GenerativeModel')
+    def test_invoke_with_conversation_history(self, mock_model_class, mock_vertexai, vertex_config, logger, temp_prompts_dir):
+        """Test invoke method with conversation history."""
+        from src.cli.memory import ConversationMessage
+        
+        mock_response = Mock()
+        mock_response.text = "I can see you asked about Machine Learning earlier."
+        
+        mock_model = Mock()
+        mock_model.generate_content.return_value = mock_response
+        mock_model_class.return_value = mock_model
+        
+        agent = GoogleVertexAIAgent(config=vertex_config, logger=logger, prompts_dir=temp_prompts_dir)
+        
+        # Create conversation history
+        history = [
+            ConversationMessage("user", "What is Machine Learning?", "2023-01-01T00:00:00", 12),
+            ConversationMessage("assistant", "ML is a subset of AI that uses algorithms.", "2023-01-01T00:01:00", 18)
+        ]
+        
+        result = agent.invoke("What did I ask about?", history=history)
+        
+        assert result == "I can see you asked about Machine Learning earlier."
+        
+        # Verify context was built with history
+        call_args = mock_model.generate_content.call_args[0]
+        full_context = call_args[0]
+        
+        # Context should include system prompt, history, and current question
+        expected_context = (
+            "You are {role}. Follow these rules: {rules}\n\n"
+            "Human: What is Machine Learning?\n\n"
+            "Assistant: ML is a subset of AI that uses algorithms.\n\n"
+            "Human: What did I ask about?"
+        )
+        assert full_context == expected_context
+
+    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('src.agents.vertex_agent.vertexai')
+    @patch('src.agents.vertex_agent.GenerativeModel')
+    def test_invoke_without_history_backward_compatibility(self, mock_model_class, mock_vertexai, vertex_config, logger, temp_prompts_dir):
+        """Test invoke method still works without history parameter (backward compatibility)."""
+        mock_response = Mock()
+        mock_response.text = "Hello! How can I assist you today?"
+        
+        mock_model = Mock()
+        mock_model.generate_content.return_value = mock_response
+        mock_model_class.return_value = mock_model
+        
+        agent = GoogleVertexAIAgent(config=vertex_config, logger=logger, prompts_dir=temp_prompts_dir)
+        
+        # Call without history parameter
+        result = agent.invoke("Hello")
+        
+        assert result == "Hello! How can I assist you today?"
+        
+        # Verify only current message with system prompt was sent
+        call_args = mock_model.generate_content.call_args[0]
+        full_context = call_args[0]
+        
+        expected_context = "You are {role}. Follow these rules: {rules}\n\nHuman: Hello"
+        assert full_context == expected_context
+
+    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('src.agents.vertex_agent.vertexai')
+    @patch('src.agents.vertex_agent.GenerativeModel')
+    def test_invoke_with_empty_history(self, mock_model_class, mock_vertexai, vertex_config, logger, temp_prompts_dir):
+        """Test invoke method with empty history list."""
+        mock_response = Mock()
+        mock_response.text = "Hello there!"
+        
+        mock_model = Mock()
+        mock_model.generate_content.return_value = mock_response
+        mock_model_class.return_value = mock_model
+        
+        agent = GoogleVertexAIAgent(config=vertex_config, logger=logger, prompts_dir=temp_prompts_dir)
+        
+        # Call with empty history
+        result = agent.invoke("Hello", history=[])
+        
+        assert result == "Hello there!"
+        
+        # Verify only current message with system prompt was sent
+        call_args = mock_model.generate_content.call_args[0]
+        full_context = call_args[0]
+        
+        expected_context = "You are {role}. Follow these rules: {rules}\n\nHuman: Hello"
+        assert full_context == expected_context
+
+    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('src.agents.vertex_agent.vertexai')
+    @patch('src.agents.vertex_agent.GenerativeModel')
+    def test_context_building_method(self, mock_model_class, mock_vertexai, vertex_config, logger, temp_prompts_dir):
+        """Test the _build_conversation_context method directly."""
+        from src.cli.memory import ConversationMessage
+        
+        agent = GoogleVertexAIAgent(config=vertex_config, logger=logger, prompts_dir=temp_prompts_dir)
+        
+        # Test with history
+        history = [
+            ConversationMessage("user", "Hello", "2023-01-01T00:00:00", 3),
+            ConversationMessage("assistant", "Hi there!", "2023-01-01T00:01:00", 5)
+        ]
+        
+        context = agent._build_conversation_context("You are helpful.", history, "How are you?")
+        
+        expected = (
+            "You are helpful.\n\n"
+            "Human: Hello\n\n"
+            "Assistant: Hi there!\n\n"
+            "Human: How are you?"
+        )
+        
+        assert context == expected
+        
+        # Test without history
+        context_no_history = agent._build_conversation_context("You are helpful.", None, "Hello")
+        expected_no_history = "You are helpful.\n\nHuman: Hello"
+        
+        assert context_no_history == expected_no_history

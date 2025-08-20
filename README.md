@@ -10,7 +10,8 @@ An interactive terminal-based chat interface for testing prompts and having conv
 - **Zero-config mode**: Auto-detects providers via environment variables
 - **Real-time streaming**: Token-by-token streaming support for all providers
 - **Multiple usage patterns**: Config files, inline creation, or auto-discovery
-- **Interactive commands**: `/help`, `/agents`, `/switch`, `/stream`, `/export`, and more
+- **Interactive commands**: `/help`, `/agents`, `/switch`, `/stream`, `/memory`, `/compact`, and more
+- **Memory management**: Configurable conversation limits, auto-compaction, and persistent storage
 - **Flexible prompts**: Multiple directory search strategies and per-agent overrides
 - **Plugin system**: Entry points for custom LLM provider extensions
 - **Session management**: History tracking and conversation export
@@ -53,7 +54,9 @@ config = AgentConfig(
     model_version="claude-3-5-haiku-latest",
     prompt="assistant:v1",
     provider_auth={"api_key": "your-api-key"},
-    stream=True  # Enable streaming support
+    stream=True,  # Enable streaming support
+    memory_enabled=True,  # Enable conversation memory
+    max_memory_tokens=8000  # Configure memory limit
 )
 
 agent = Agent.create(config)

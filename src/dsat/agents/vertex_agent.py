@@ -77,7 +77,7 @@ class GoogleVertexAIAgent(Agent):
         vertexai.init(project=project_id_from_config, location=location_from_config)
         self.client = GenerativeModel(config.model_version)
 
-    def invoke(self, user_prompt: str, system_prompt: str = None) -> str:
+    def invoke(self, user_prompt: str, system_prompt: str = None, history=None) -> str:
         # Use model parameters from config, with defaults
         model_params = self.config.model_parameters or {}
         temperature = model_params.get("temperature", 0.3)
@@ -87,17 +87,15 @@ class GoogleVertexAIAgent(Agent):
         if system_prompt is None:
             system_prompt = self.get_system_prompt()
 
-        # Combine system and user prompts for Vertex AI
-        if system_prompt:
-            full_prompt = f"{system_prompt}\n\n{user_prompt}"
-        else:
-            full_prompt = user_prompt
+        # Build conversation context with history
+        full_prompt = self._build_conversation_context(system_prompt, history, user_prompt)
 
         # Prepare request data for logging
         request_data = {
             "user_prompt": user_prompt,
             "system_prompt": system_prompt,
             "full_prompt": full_prompt,
+            "history_length": len(history) if history else 0,
             "model_parameters": {
                 "temperature": temperature,
                 "max_output_tokens": max_output_tokens,
@@ -163,7 +161,7 @@ class GoogleVertexAIAgent(Agent):
             raise
 
     async def invoke_async(
-        self, user_prompt: str, system_prompt: str = None
+        self, user_prompt: str, system_prompt: str = None, history=None
     ) -> AsyncGenerator[str, None]:
         """
         Send the prompts to Vertex AI and return a streaming async generator of response tokens.
@@ -181,17 +179,15 @@ class GoogleVertexAIAgent(Agent):
         if system_prompt is None:
             system_prompt = self.get_system_prompt()
 
-        # Combine system and user prompts for Vertex AI
-        if system_prompt:
-            full_prompt = f"{system_prompt}\n\n{user_prompt}"
-        else:
-            full_prompt = user_prompt
+        # Build conversation context with history
+        full_prompt = self._build_conversation_context(system_prompt, history, user_prompt)
 
         # Prepare request data for logging
         request_data = {
             "user_prompt": user_prompt,
             "system_prompt": system_prompt,
             "full_prompt": full_prompt,
+            "history_length": len(history) if history else 0,
             "model_parameters": {
                 "temperature": temperature,
                 "max_output_tokens": max_output_tokens,
@@ -258,6 +254,34 @@ class GoogleVertexAIAgent(Agent):
 
             self.logger.error(f"Vertex AI API error in streaming: {str(e)}")
             raise
+
+    def _build_conversation_context(self, system_prompt, history, user_prompt):
+        """
+        Build conversation context for Vertex AI from system prompt, history, and current user prompt.
+        
+        :param system_prompt: System prompt string or None
+        :param history: List of ConversationMessage objects or None
+        :param user_prompt: Current user prompt string
+        :return: Full conversation context as a string
+        """
+        context_parts = []
+        
+        # Add system prompt if provided
+        if system_prompt:
+            context_parts.append(system_prompt)
+        
+        # Add conversation history if provided
+        if history:
+            for msg in history:
+                # Format each message clearly
+                role_label = "Human" if msg.role == "user" else "Assistant"
+                context_parts.append(f"{role_label}: {msg.content}")
+        
+        # Add current user prompt
+        context_parts.append(f"Human: {user_prompt}")
+        
+        # Join all parts with double newlines for clear separation
+        return "\n\n".join(context_parts)
 
     @property
     def model(self) -> str:

@@ -15,11 +15,16 @@ from test.echo_agent import EchoAgent, create_echo_agent_config
 class ConcreteAgent(Agent):
     """Concrete implementation of Agent for testing."""
     
-    def invoke(self, user_prompt: str, system_prompt: str = None) -> str:
+    def invoke(self, user_prompt: str, system_prompt: str = None, history=None) -> str:
         """Mock implementation for testing."""
         if system_prompt is None:
             system_prompt = self.get_system_prompt()
-        return f"Response to: {user_prompt} (System: {system_prompt})"
+        
+        history_info = ""
+        if history:
+            history_info = f" (History: {len(history)} messages)"
+            
+        return f"Response to: {user_prompt} (System: {system_prompt}){history_info}"
     
     @property
     def model(self) -> str:
@@ -378,3 +383,103 @@ class TestAgentFactory:
         # Test invoke functionality
         response = agent.invoke("Hello world")
         assert "Echo: Hello world" in response
+
+    def test_invoke_with_conversation_history(self, temp_prompts_dir):
+        """Test base Agent class invoke method with conversation history."""
+        from src.cli.memory import ConversationMessage
+        
+        config = AgentConfig(
+            agent_name="test_agent",
+            model_provider="test",
+            model_family="test",
+            model_version="test-model",
+            prompt="test:v1"
+        )
+        
+        agent = ConcreteAgent(config, prompts_dir=temp_prompts_dir)
+        
+        # Create conversation history
+        history = [
+            ConversationMessage("user", "What is AI?", "2023-01-01T00:00:00", 8),
+            ConversationMessage("assistant", "AI is artificial intelligence.", "2023-01-01T00:01:00", 12)
+        ]
+        
+        result = agent.invoke("Tell me more", history=history)
+        
+        # Should include history information
+        assert "Response to: Tell me more" in result
+        assert "(History: 2 messages)" in result
+        assert "System: You are a {assistant_type}" in result  # from test:v1 prompt
+
+    def test_invoke_without_history_backward_compatibility(self, temp_prompts_dir):
+        """Test base Agent class invoke method without history (backward compatibility)."""
+        config = AgentConfig(
+            agent_name="test_agent", 
+            model_provider="test",
+            model_family="test",
+            model_version="test-model",
+            prompt="test:v1"
+        )
+        
+        agent = ConcreteAgent(config, prompts_dir=temp_prompts_dir)
+        
+        result = agent.invoke("Hello")
+        
+        # Should work without history parameter
+        assert "Response to: Hello" in result
+        assert "(History:" not in result  # No history info
+        assert "System: You are a {assistant_type}" in result
+
+    def test_invoke_with_empty_history(self, temp_prompts_dir):
+        """Test base Agent class invoke method with empty history."""
+        config = AgentConfig(
+            agent_name="test_agent",
+            model_provider="test", 
+            model_family="test",
+            model_version="test-model",
+            prompt="test:v1"
+        )
+        
+        agent = ConcreteAgent(config, prompts_dir=temp_prompts_dir)
+        
+        result = agent.invoke("Hello", history=[])
+        
+        # Should work with empty history
+        assert "Response to: Hello" in result
+        assert "(History:" not in result  # No history info for empty list
+        assert "System: You are a {assistant_type}" in result
+
+    def test_base_agent_method_signatures(self):
+        """Test that base Agent class has correct method signatures for memory support."""
+        from inspect import signature
+        
+        # Check invoke method signature
+        invoke_sig = signature(Agent.invoke)
+        params = list(invoke_sig.parameters.keys())
+        
+        assert 'self' in params
+        assert 'user_prompt' in params
+        assert 'system_prompt' in params
+        assert 'history' in params
+        
+        # Check that history has default value
+        history_param = invoke_sig.parameters['history']
+        assert history_param.default is None
+
+    def test_echo_agent_with_history(self):
+        """Test EchoAgent with conversation history."""
+        from src.cli.memory import ConversationMessage
+        
+        config = create_echo_agent_config("echo_history_test")
+        agent = Agent.create(config)
+        
+        # Create conversation history
+        history = [
+            ConversationMessage("user", "Previous question", "2023-01-01T00:00:00", 5),
+            ConversationMessage("assistant", "Previous answer", "2023-01-01T00:01:00", 5)
+        ]
+        
+        result = agent.invoke("Current question", history=history)
+        
+        # EchoAgent should handle history parameter gracefully
+        assert "Echo: Current question" in result

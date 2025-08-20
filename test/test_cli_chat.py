@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from dsat.cli.chat import ChatInterface, ChatSession, create_parser
 from dsat.agents.agent import AgentConfig
+from dsat.cli.memory import MemoryManager, ConversationMessage, TokenCounter
 
 
 class TestChatSession:
@@ -81,6 +82,161 @@ class TestChatSession:
             # Cleanup
             if temp_path.exists():
                 temp_path.unlink()
+
+    def test_memory_functionality(self):
+        """Test memory management functionality."""
+        # Create agent with memory enabled
+        self.mock_agent.config.memory_enabled = True
+        self.mock_agent.config.max_memory_tokens = 100
+        self.mock_agent.config.response_truncate_length = 50
+        
+        # Test session with memory
+        session = ChatSession(self.mock_agent)
+        
+        # Test adding messages
+        session.add_message("user", "Hello")
+        session.add_message("assistant", "Hi there!")
+        
+        # Test memory stats
+        stats = session.get_memory_stats()
+        assert stats['total_messages'] == 2
+        assert stats['total_tokens'] > 0
+        assert stats['max_tokens'] == 100
+        
+    def test_response_truncation(self):
+        """Test response truncation functionality."""
+        self.mock_agent.config.memory_enabled = True
+        self.mock_agent.config.response_truncate_length = 20
+        
+        session = ChatSession(self.mock_agent)
+        
+        # Add a long response that should be truncated
+        long_response = "This is a very long response that should be truncated because it exceeds the limit"
+        session.add_message("assistant", long_response)
+        
+        # Check that the response was truncated
+        last_message = session.history[-1]
+        assert len(last_message['content']) <= 23  # 20 + "..." = 23
+        assert last_message['content'].endswith('...')
+        
+    def test_memory_compaction(self):
+        """Test memory compaction functionality."""
+        self.mock_agent.config.memory_enabled = True
+        self.mock_agent.config.max_memory_tokens = 100  # Small limit
+        
+        session = ChatSession(self.mock_agent)
+        
+        # Add many longer messages to ensure we exceed the limit
+        for i in range(15):
+            user_msg = f"This is a longer user message number {i} with enough content to generate multiple tokens and trigger compaction when we exceed the limit"
+            assistant_msg = f"This is a longer assistant response number {i} with enough content to generate multiple tokens and trigger compaction when we exceed the limit"
+            session.add_message("user", user_msg)
+            session.add_message("assistant", assistant_msg)
+        
+        # Check that messages were compacted
+        stats = session.get_memory_stats()
+        assert stats['total_messages'] < 30  # Should be less than the 30 we added
+        assert stats['total_tokens'] <= 100  # Should respect the token limit
+
+
+class TestMemoryManager:
+    """Test the MemoryManager class."""
+    
+    def setup_method(self):
+        """Setup for each test method."""
+        self.memory_manager = MemoryManager(max_tokens=100)
+    
+    def test_token_estimation(self):
+        """Test token estimation functionality."""
+        # Test basic token counting
+        tokens = TokenCounter.estimate_tokens("Hello world")
+        assert tokens > 0
+        
+        # Test empty string
+        tokens = TokenCounter.estimate_tokens("")
+        assert tokens == 0
+        
+        # Test longer text
+        long_text = "This is a longer text with more words to test token estimation"
+        tokens = TokenCounter.estimate_tokens(long_text)
+        assert tokens > 5
+    
+    def test_conversation_message(self):
+        """Test ConversationMessage functionality."""
+        msg = ConversationMessage(
+            role="user",
+            content="Hello",
+            timestamp="2023-01-01T00:00:00",
+            tokens=5
+        )
+        
+        # Test serialization
+        msg_dict = msg.to_dict()
+        assert msg_dict['role'] == "user"
+        assert msg_dict['content'] == "Hello"
+        assert msg_dict['tokens'] == 5
+        
+        # Test deserialization
+        new_msg = ConversationMessage.from_dict(msg_dict)
+        assert new_msg.role == msg.role
+        assert new_msg.content == msg.content
+        assert new_msg.tokens == msg.tokens
+    
+    def test_memory_compaction(self):
+        """Test memory compaction logic."""
+        # Create messages that exceed the token limit
+        messages = []
+        for i in range(10):
+            msg = ConversationMessage(
+                role="user" if i % 2 == 0 else "assistant",
+                content=f"Message {i} with some content",
+                timestamp=f"2023-01-01T{i:02d}:00:00",
+                tokens=15
+            )
+            messages.append(msg)
+        
+        # Total tokens would be 150, which exceeds our 100 limit
+        compacted = self.memory_manager.compact_memory(messages, preserve_recent=3)
+        
+        # Should preserve recent messages and stay under limit
+        total_tokens = self.memory_manager.calculate_total_tokens(compacted)
+        assert total_tokens <= 100
+        assert len(compacted) >= 3  # Should preserve at least 3 recent messages
+    
+    def test_response_truncation(self):
+        """Test response truncation logic."""
+        # Test normal response (no truncation)
+        short_response = "Short response"
+        truncated = self.memory_manager.truncate_response(short_response, 100)
+        assert truncated == short_response
+        
+        # Test long response (should be truncated)
+        long_response = "This is a very long response that should be truncated because it exceeds the maximum length limit set for responses."
+        truncated = self.memory_manager.truncate_response(long_response, 50)
+        assert len(truncated) <= 53  # 50 + "..." = 53
+        assert truncated.endswith('...')
+        
+        # Test sentence boundary truncation
+        sentence_response = "This is sentence one. This is sentence two. This is sentence three."
+        truncated = self.memory_manager.truncate_response(sentence_response, 40)
+        # Should try to break at sentence boundary
+        assert truncated.endswith('...') or truncated.endswith('.')
+    
+    def test_memory_stats(self):
+        """Test memory statistics calculation."""
+        messages = [
+            ConversationMessage("user", "Hello", "2023-01-01T00:00:00", 5),
+            ConversationMessage("assistant", "Hi there!", "2023-01-01T00:01:00", 8),
+            ConversationMessage("user", "How are you?", "2023-01-01T00:02:00", 10),
+        ]
+        
+        stats = self.memory_manager.get_memory_stats(messages)
+        
+        assert stats['total_messages'] == 3
+        assert stats['total_tokens'] == 23  # 5 + 8 + 10
+        assert stats['max_tokens'] == 100
+        assert stats['memory_usage_percent'] == 23.0
+        assert stats['tokens_remaining'] == 77
 
 
 class TestChatInterface:
@@ -422,6 +578,16 @@ class TestChatInterface:
         """Test clearing conversation history."""
         # Create a session with history
         mock_agent = Mock()
+        mock_agent.config = AgentConfig(
+            agent_name="test",
+            model_provider="test",
+            model_family="test",
+            model_version="test",
+            prompt="test:v1",
+            memory_enabled=True,
+            max_memory_tokens=1000,
+            response_truncate_length=500
+        )
         self.chat.current_session = ChatSession(mock_agent)
         self.chat.current_session.add_message("user", "test")
         
@@ -442,7 +608,10 @@ class TestChatInterface:
             model_provider="test",
             model_family="test",
             model_version="test",
-            prompt="test:v1"
+            prompt="test:v1",
+            memory_enabled=True,
+            max_memory_tokens=1000,
+            response_truncate_length=500
         )
         self.chat.current_session = ChatSession(mock_agent)
         self.chat.current_session.add_message("user", "test")

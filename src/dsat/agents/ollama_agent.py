@@ -4,6 +4,7 @@ import json
 from typing import AsyncGenerator
 from .agent import Agent, AgentConfig
 from .agent_logger import CallTimer
+from ..cli.memory import TokenCounter
 
 try:
     import requests
@@ -44,12 +45,13 @@ class OllamaAgent(Agent):
         self.base_url = base_url.rstrip("/")
         self.api_url = f"{self.base_url}/api/generate"
 
-    def invoke(self, user_prompt: str, system_prompt: str = None) -> str:
+    def invoke(self, user_prompt: str, system_prompt: str = None, history=None) -> str:
         """
         Send the prompts to Ollama and return the response.
 
         :param user_prompt: Specific user prompt
         :param system_prompt: Optional system prompt override. If None, loads from config via prompt manager.
+        :param history: Optional conversation history for context
         :return: Text of response
         """
         # Use model parameters from config, with defaults
@@ -60,16 +62,15 @@ class OllamaAgent(Agent):
         if system_prompt is None:
             system_prompt = self.get_system_prompt()
 
-        # Prepare the prompt - combine system and user prompts
-        if system_prompt:
-            full_prompt = f"{system_prompt}\n\n{user_prompt}"
-        else:
-            full_prompt = user_prompt
+        # Build conversation context with history
+        full_prompt = self._build_conversation_context(system_prompt, history, user_prompt)
 
         # Prepare request data for logging
         request_data = {
             "user_prompt": user_prompt,
             "system_prompt": system_prompt,
+            "history_length": len(history) if history else 0,
+            "full_prompt_tokens": TokenCounter.estimate_tokens(full_prompt),
             "model_parameters": {"temperature": temperature},
         }
 
@@ -167,7 +168,7 @@ class OllamaAgent(Agent):
             raise
 
     async def invoke_async(
-        self, user_prompt: str, system_prompt: str = None
+        self, user_prompt: str, system_prompt: str = None, history=None
     ) -> AsyncGenerator[str, None]:
         """
         Send the prompts to Ollama and return a streaming async generator of response tokens.
@@ -189,16 +190,15 @@ class OllamaAgent(Agent):
         if system_prompt is None:
             system_prompt = self.get_system_prompt()
 
-        # Prepare the prompt - combine system and user prompts
-        if system_prompt:
-            full_prompt = f"{system_prompt}\n\n{user_prompt}"
-        else:
-            full_prompt = user_prompt
+        # Build conversation context with history
+        full_prompt = self._build_conversation_context(system_prompt, history, user_prompt)
 
         # Prepare request data for logging
         request_data = {
             "user_prompt": user_prompt,
             "system_prompt": system_prompt,
+            "history_length": len(history) if history else 0,
+            "full_prompt_tokens": TokenCounter.estimate_tokens(full_prompt),
             "model_parameters": {"temperature": temperature},
         }
 
@@ -294,6 +294,34 @@ class OllamaAgent(Agent):
 
             self.logger.error(f"Unexpected error in Ollama async agent: {str(e)}")
             raise
+
+    def _build_conversation_context(self, system_prompt, history, user_prompt):
+        """
+        Build conversation context for Ollama from system prompt, history, and current user prompt.
+        
+        :param system_prompt: System prompt string or None
+        :param history: List of ConversationMessage objects or None
+        :param user_prompt: Current user prompt string
+        :return: Full conversation context as a string
+        """
+        context_parts = []
+        
+        # Add system prompt if provided
+        if system_prompt:
+            context_parts.append(system_prompt)
+        
+        # Add conversation history if provided
+        if history:
+            for msg in history:
+                # Format each message clearly
+                role_label = "Human" if msg.role == "user" else "Assistant"
+                context_parts.append(f"{role_label}: {msg.content}")
+        
+        # Add current user prompt
+        context_parts.append(f"Human: {user_prompt}")
+        
+        # Join all parts with double newlines for clear separation
+        return "\n\n".join(context_parts)
 
     @property
     def model(self) -> str:

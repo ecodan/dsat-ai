@@ -64,7 +64,7 @@ class ClaudeLLMAgent(Agent):
 
         self.client = Anthropic(api_key=api_key_from_config)
 
-    def invoke(self, user_prompt: str, system_prompt: str = None) -> str:
+    def invoke(self, user_prompt: str, system_prompt: str = None, history=None) -> str:
         # Use model parameters from config, with defaults
         model_params = self.config.model_parameters or {}
         max_tokens = model_params.get("max_tokens", 4096)
@@ -74,11 +74,15 @@ class ClaudeLLMAgent(Agent):
         if system_prompt is None:
             system_prompt = self.get_system_prompt()
 
+        # Build messages array from history and current prompt
+        messages = self._build_messages_from_history(history, user_prompt)
+
         # Prepare request data for logging
         request_data = {
             "user_prompt": user_prompt,
             "system_prompt": system_prompt,
             "model_parameters": {"max_tokens": max_tokens, "temperature": temperature},
+            "history_length": len(history) if history else 0,
         }
 
         try:
@@ -88,7 +92,7 @@ class ClaudeLLMAgent(Agent):
                     max_tokens=max_tokens,
                     temperature=temperature,
                     system=system_prompt,
-                    messages=[{"role": "user", "content": user_prompt}],
+                    messages=messages,
                 )
 
             self.logger.debug(f"Claude raw response: {response.content}")
@@ -173,7 +177,7 @@ class ClaudeLLMAgent(Agent):
             raise
 
     async def invoke_async(
-        self, user_prompt: str, system_prompt: str = None
+        self, user_prompt: str, system_prompt: str = None, history=None
     ) -> AsyncGenerator[str, None]:
         """
         Send the prompts to Claude and return a streaming async generator of response tokens.
@@ -191,11 +195,15 @@ class ClaudeLLMAgent(Agent):
         if system_prompt is None:
             system_prompt = self.get_system_prompt()
 
+        # Build messages array from history and current prompt
+        messages = self._build_messages_from_history(history, user_prompt)
+
         # Prepare request data for logging
         request_data = {
             "user_prompt": user_prompt,
             "system_prompt": system_prompt,
             "model_parameters": {"max_tokens": max_tokens, "temperature": temperature},
+            "history_length": len(history) if history else 0,
         }
 
         try:
@@ -206,7 +214,7 @@ class ClaudeLLMAgent(Agent):
                     max_tokens=max_tokens,
                     temperature=temperature,
                     system=system_prompt,
-                    messages=[{"role": "user", "content": user_prompt}],
+                    messages=messages,
                     stream=True,
                 )
 
@@ -285,6 +293,34 @@ class ClaudeLLMAgent(Agent):
 
                 self.logger.error(f"Unexpected error in Claude async agent: {str(e)}")
                 raise
+
+    def _build_messages_from_history(self, history, user_prompt):
+        """
+        Build Anthropic messages array from conversation history and current user prompt.
+        
+        :param history: List of ConversationMessage objects or None
+        :param user_prompt: Current user prompt string
+        :return: List of message dictionaries for Anthropic API
+        """
+        messages = []
+        
+        # Add conversation history if provided
+        if history:
+            for msg in history:
+                # Only include user and assistant messages (skip system messages)
+                if msg.role in ["user", "assistant"]:
+                    messages.append({
+                        "role": msg.role,
+                        "content": msg.content
+                    })
+        
+        # Add current user prompt
+        messages.append({
+            "role": "user", 
+            "content": user_prompt
+        })
+        
+        return messages
 
     @property
     def model(self) -> str:

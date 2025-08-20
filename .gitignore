@@ -10,3 +10,8 @@ wheels/
 .venv
 **/demo/
 /examples/scryptorum/experiments/
+/experiments/
+.idea
+
+
+/.claude/
