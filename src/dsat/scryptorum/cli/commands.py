@@ -8,7 +8,12 @@ import traceback
 from pathlib import Path
 
 from ..core.experiment import create_project, Experiment, resolve_project_root
-from ..core.project_config import ScryptorumConfig, find_scryptorum_project, resolve_experiments_dir
+from ..core.project_config import (
+    ScryptorumConfig,
+    find_scryptorum_project,
+    resolve_experiments_dir,
+)
+
 # Removed logging_utils import - CLI commands use print for immediate feedback
 
 
@@ -16,12 +21,12 @@ def _create_sample_experiment_file(current_dir: Path, project_name: str) -> None
     """Create a sample experiment file in the root directory."""
     sample_filename = "sample_experiment.py"
     sample_file_path = current_dir / sample_filename
-    
+
     # Don't overwrite existing files
     if sample_file_path.exists():
         print(f"Sample file already exists: {sample_file_path}")
         return
-    
+
     sample_content = f'''"""
 Sample experiment for {project_name}.
 
@@ -109,10 +114,10 @@ if __name__ == "__main__":
     # runner = Runner(".")
     # runner.run_experiment("sample_experiment", SampleExperimentRunnable)
 '''
-    
+
     with open(sample_file_path, "w") as f:
         f.write(sample_content)
-    
+
     print(f"Created sample experiment file: {sample_file_path}")
 
 
@@ -195,15 +200,17 @@ def init_command(args) -> None:
     try:
         current_dir = Path.cwd()
         config = ScryptorumConfig()
-        
+
         if config.exists():
             print(f"Scryptorum already initialized in {current_dir}")
             return
-        
+
         # Resolve experiments directory
-        experiments_dir = resolve_experiments_dir(getattr(args, 'experiments_dir', None))
-        project_name = getattr(args, 'project_name', None) or current_dir.name
-        
+        experiments_dir = resolve_experiments_dir(
+            getattr(args, "experiments_dir", None)
+        )
+        project_name = getattr(args, "project_name", None) or current_dir.name
+
         # Create the scryptorum project directory structure
         project_root = experiments_dir / project_name
         if not project_root.exists():
@@ -211,18 +218,18 @@ def init_command(args) -> None:
             print(f"Created scryptorum project at {project_root_created}")
         else:
             print(f"Using existing scryptorum project at {project_root}")
-        
+
         # Create .scryptorum config file
         config.create(experiments_dir, project_name)
         print(f"Initialized scryptorum in {current_dir}")
         print(f"Project: {project_name}")
         print(f"Experiments directory: {experiments_dir}")
         print(f"Config file: {config.config_path}")
-        
+
         # Create sample experiment file if requested
-        if getattr(args, 'sample', False):
+        if getattr(args, "sample", False):
             _create_sample_experiment_file(current_dir, project_name)
-        
+
     except Exception as e:
         print(f"Error initializing scryptorum: {e}", file=sys.stderr)
         sys.exit(1)
@@ -233,7 +240,7 @@ def create_experiment_command(args) -> None:
     try:
         # Try to auto-detect scryptorum project first
         auto_project_root = find_scryptorum_project()
-        
+
         if auto_project_root:
             project_root = auto_project_root
             print(f"Using auto-detected scryptorum project: {project_root}")
@@ -244,7 +251,10 @@ def create_experiment_command(args) -> None:
         elif hasattr(args, "project_root") and args.project_root:
             project_root = Path(args.project_root)
         else:
-            print("No scryptorum project found. Run 'scryptorum init' first or specify project location.", file=sys.stderr)
+            print(
+                "No scryptorum project found. Run 'scryptorum init' first or specify project location.",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
         if not project_root.exists():
@@ -264,7 +274,7 @@ def list_experiments_command(args) -> None:
     try:
         # Try to auto-detect scryptorum project first
         auto_project_root = find_scryptorum_project()
-        
+
         if auto_project_root:
             project_root = auto_project_root
         elif hasattr(args, "project_name") and args.project_name:
@@ -274,7 +284,10 @@ def list_experiments_command(args) -> None:
         elif hasattr(args, "project_root") and args.project_root:
             project_root = Path(args.project_root)
         else:
-            print("No scryptorum project found. Run 'scryptorum init' first or specify project location.", file=sys.stderr)
+            print(
+                "No scryptorum project found. Run 'scryptorum init' first or specify project location.",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
         experiments_dir = project_root / "experiments"
@@ -299,7 +312,7 @@ def list_runs_command(args) -> None:
     try:
         # Try to auto-detect scryptorum project first
         auto_project_root = find_scryptorum_project()
-        
+
         if auto_project_root:
             project_root = auto_project_root
         elif hasattr(args, "project_name") and args.project_name:
@@ -309,7 +322,10 @@ def list_runs_command(args) -> None:
         elif hasattr(args, "project_root") and args.project_root:
             project_root = Path(args.project_root)
         else:
-            print("No scryptorum project found. Run 'scryptorum init' first or specify project location.", file=sys.stderr)
+            print(
+                "No scryptorum project found. Run 'scryptorum init' first or specify project location.",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
         experiment = Experiment(project_root, args.experiment)
@@ -332,16 +348,16 @@ def sample_command(args) -> None:
     """Create a sample experiment file in the current directory."""
     try:
         current_dir = Path.cwd()
-        
+
         # Determine project name from .scryptorum config if it exists
         config = ScryptorumConfig()
         if config.exists():
             project_name = config.get_project_name()
         else:
             project_name = current_dir.name
-        
+
         _create_sample_experiment_file(current_dir, project_name)
-        
+
     except Exception as e:
         print(f"Error creating sample file: {e}", file=sys.stderr)
         sys.exit(1)
@@ -360,7 +376,7 @@ def run_experiment_command(args) -> None:
 
         # Try to auto-detect scryptorum project first
         auto_project_root = find_scryptorum_project()
-        
+
         if auto_project_root:
             project_root = auto_project_root
         elif hasattr(args, "project_name") and args.project_name:
@@ -370,7 +386,10 @@ def run_experiment_command(args) -> None:
         elif hasattr(args, "project_root") and args.project_root:
             project_root = Path(args.project_root)
         else:
-            print("No scryptorum project found. Run 'scryptorum init' first or specify project location.", file=sys.stderr)
+            print(
+                "No scryptorum project found. Run 'scryptorum init' first or specify project location.",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
         runner = Runner(project_root)

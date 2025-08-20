@@ -1,0 +1,34 @@
+{
+  "_models": {
+    "default-claude": {
+      "model_provider": "anthropic",
+      "model_family": "claude",
+      "model_version": "claude-3-5-haiku-latest",
+      "model_parameters": {
+        "temperature": 0.7
+      },
+      "provider_auth": {
+        "api_key": "sk-ant-example-key"
+      }
+    },
+    "local-qwen": {
+      "model_provider": "ollama",
+      "model_family": "qwen",
+      "model_version": "qwen",
+      "provider_auth": {
+        "base_url": "http://localhost:11434"
+      }
+    }
+  },
+  "assistant": {
+    "model_id": "default-claude",
+    "prompt": "assistant:v1"
+  },
+  "local_assistant": {
+    "model_id": "local-qwen",
+    "prompt": "assistant:v1",
+    "model_parameters": {
+      "temperature": 0.9
+    }
+  }
+}

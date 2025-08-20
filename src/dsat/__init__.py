@@ -16,7 +16,7 @@ from .scryptorum import experiment, metric, timer, llm_call
 
 __all__ = [
     "Agent",
-    "AgentConfig", 
+    "AgentConfig",
     "experiment",
     "metric",
     "timer",

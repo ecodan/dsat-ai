@@ -1,0 +1,105 @@
+{
+  "_models": {
+    "claude-standard": {
+      "model_provider": "anthropic",
+      "model_family": "claude",
+      "model_version": "claude-3-5-haiku-latest",
+      "model_parameters": {
+        "temperature": 0.7,
+        "max_tokens": 4096
+      },
+      "provider_auth": {
+        "api_key": "sk-ant-example-key"
+      }
+    },
+    "claude-creative": {
+      "model_provider": "anthropic",
+      "model_family": "claude",
+      "model_version": "claude-3-5-sonnet-latest",
+      "model_parameters": {
+        "temperature": 0.9,
+        "max_tokens": 8192
+      },
+      "provider_auth": {
+        "api_key": "sk-ant-example-key"
+      }
+    },
+    "gpt-standard": {
+      "model_provider": "openai",
+      "model_family": "gpt",
+      "model_version": "gpt-4o",
+      "model_parameters": {
+        "temperature": 0.7,
+        "max_tokens": 4096
+      },
+      "provider_auth": {
+        "api_key": "sk-example-openai-key"
+      }
+    },
+    "ollama-local": {
+      "model_provider": "ollama",
+      "model_family": "qwen",
+      "model_version": "qwen",
+      "model_parameters": {
+        "temperature": 0.7
+      },
+      "provider_auth": {
+        "base_url": "http://localhost:11434"
+      }
+    }
+  },
+  "research_assistant": {
+    "model_id": "claude-standard",
+    "prompt": "researcher:v1",
+    "model_parameters": {
+      "temperature": 0.3
+    },
+    "custom_configs": {
+      "logging": {
+        "enabled": true,
+        "mode": "jsonl_file",
+        "file_path": "./logs/research_calls.jsonl",
+        "level": "standard"
+      }
+    }
+  },
+  "creative_writer": {
+    "model_id": "claude-creative",
+    "prompt": "creative:v1",
+    "custom_configs": {
+      "logging": {
+        "enabled": true,
+        "mode": "jsonl_file", 
+        "file_path": "./logs/creative_calls.jsonl",
+        "level": "standard"
+      }
+    }
+  },
+  "code_reviewer": {
+    "model_id": "gpt-standard",
+    "prompt": "code_review:v2",
+    "model_parameters": {
+      "temperature": 0.2,
+      "max_tokens": 8192
+    }
+  },
+  "local_chat": {
+    "model_id": "ollama-local",
+    "prompt": "assistant:latest",
+    "model_parameters": {
+      "temperature": 0.8
+    }
+  },
+  "legacy_agent": {
+    "model_provider": "anthropic",
+    "model_family": "claude", 
+    "model_version": "claude-3-5-haiku-latest",
+    "prompt": "legacy:v1",
+    "model_parameters": {
+      "temperature": 0.7
+    },
+    "provider_auth": {
+      "api_key": "sk-ant-example-key"
+    }
+  }
+}

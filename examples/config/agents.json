@@ -1,4 +1,14 @@
 {
+  "_models": {
+    "local-qwen": {
+      "model_provider": "ollama",
+      "model_family": "qwen",
+      "model_version": "qwen",
+      "provider_auth": {
+        "base_url": "http://localhost:11434"
+      }
+    }
+  },
   "pirate": {
     "model_provider": "ollama",
     "model_family": "qwen",
@@ -20,16 +30,8 @@
     }
   },
   "shakespeare": {
-    "model_provider": "ollama",
-    "model_family": "qwen",
-    "model_version": "qwen",
+    "model_id": "local-qwen",
     "prompt": "shakespeare:v1",
-    "model_parameters": {
-      "temperature": 0.8
-    },
-    "provider_auth": {
-      "base_url": "http://localhost:11434"
-    },
     "custom_configs": {
       "logging": {
         "enabled": true,

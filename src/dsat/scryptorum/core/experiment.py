@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Union
 from .runs import Run, RunType
 from .config import ConfigManager
 from .project_config import resolve_experiments_dir
+
 # Removed logging_utils import - now use logger directly from runs
 
 
@@ -21,7 +22,9 @@ class Experiment:
         self.experiment_name = experiment_name
         # Use resolve_experiments_dir to support SCRYPTORUM_EXPERIMENTS_DIR env var
         # If a project_root is provided, use its experiments subdirectory
-        experiments_base_dir = resolve_experiments_dir(self.project_root / "experiments")
+        experiments_base_dir = resolve_experiments_dir(
+            self.project_root / "experiments"
+        )
         self.experiment_path = experiments_base_dir / experiment_name
 
         # Ensure experiment directory structure exists
@@ -72,10 +75,6 @@ class Experiment:
         """Create default configuration files if needed."""
         # Base class does nothing - subclasses can override
         pass
-
-
-    
-    
 
     def create_run(
         self, run_type: RunType = RunType.TRIAL, run_id: Optional[str] = None
@@ -152,7 +151,6 @@ class Experiment:
     def config_dir(self) -> Path:
         """Get experiment config directory."""
         return self.experiment_path / "config"
-
 
 
 def create_project(name: str, parent_path: Optional[Union[str, Path]] = None) -> Path:

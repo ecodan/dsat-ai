@@ -44,7 +44,7 @@ class Run:
 
         # Initialize run directory and logging
         self._setup_run()
-        
+
         # Create experiment logger
         self.logger = create_experiment_logger(self.run_dir)
 
@@ -184,10 +184,10 @@ class Run:
             "run_finished",
             {"end_time": self.end_time.isoformat(), "duration_seconds": duration},
         )
-        
+
         # Log completion message
         self.logger.info(f"Run {self.run_id} completed in {duration:.2f} seconds")
-        
+
         # Clean up logging when run finishes
         cleanup_logger(self.logger)
 
@@ -253,7 +253,9 @@ class Run:
     def snapshot_agent_configs(self, config_dir: Path) -> None:
         """Create agent configs snapshot for reproducibility (milestone runs only)."""
         if self.run_type != RunType.MILESTONE:
-            self.log_event("agent_configs_snapshot_skipped", {"reason": "trial_run_type"})
+            self.log_event(
+                "agent_configs_snapshot_skipped", {"reason": "trial_run_type"}
+            )
             return
 
         if not config_dir.exists():

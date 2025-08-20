@@ -17,25 +17,28 @@ from .agent import Agent, AgentConfig
 
 class AgentRun(Run):
     """Enhanced Run class with agent-specific logging capabilities."""
-    
+
     def log_agent_created(self, agent_name: str, config_data: Dict[str, any]) -> None:
         """Log agent creation with configuration details."""
-        self.log_event("agent_created", {
-            "agent_name": agent_name,
-            "model_provider": config_data.get("model_provider"),
-            "model_family": config_data.get("model_family"),
-            "model_version": config_data.get("model_version"),
-            "prompt": config_data.get("prompt"),
-        })
-    
+        self.log_event(
+            "agent_created",
+            {
+                "agent_name": agent_name,
+                "model_provider": config_data.get("model_provider"),
+                "model_family": config_data.get("model_family"),
+                "model_version": config_data.get("model_version"),
+                "prompt": config_data.get("prompt"),
+            },
+        )
+
     def log_agent_invoke(
-        self, 
-        agent_name: str, 
+        self,
+        agent_name: str,
         user_prompt: str,
         system_prompt: Optional[str] = None,
         response: Optional[str] = None,
         duration_ms: Optional[float] = None,
-        **metadata
+        **metadata,
     ) -> None:
         """Log agent invocation with full context."""
         invoke_data = {
@@ -44,7 +47,7 @@ class AgentRun(Run):
             "system_prompt": system_prompt,
             "response": response,
             "duration_ms": duration_ms,
-            **metadata
+            **metadata,
         }
         self.log_event("agent_invoke", invoke_data)
 
@@ -68,11 +71,11 @@ class AgentRun(Run):
             "duration_ms": duration_ms,
             **metadata,
         }
-        
+
         # Add agent information if available
         if agent_name:
             llm_data["agent_name"] = agent_name
-        
+
         # Handle prompt information - either separate fields or combined format
         if prompt:
             # Parse "name:version" format
@@ -80,19 +83,19 @@ class AgentRun(Run):
                 prompt_name, prompt_version = prompt.split(":", 1)
             else:
                 prompt_name, prompt_version = prompt, "latest"
-        
+
         if prompt_name:
             llm_data["prompt_name"] = prompt_name
         if prompt_version:
             llm_data["prompt_version"] = prompt_version
-            
+
         self.log_event("llm_call", llm_data)
-    
+
     def snapshot_agent_configs(self, config_dir: Path) -> None:
         """Snapshot agent configurations to the run directory."""
         snapshot_dir = self.run_dir / "agent_configs"
         snapshot_dir.mkdir(exist_ok=True)
-        
+
         # Copy all agent config files
         for config_file in config_dir.glob("*_agent_config.json"):
             dest_file = snapshot_dir / config_file.name
@@ -102,10 +105,10 @@ class AgentRun(Run):
 class AgentExperiment(Experiment):
     """
     Agent-aware experiment that extends scryptorum.Experiment with agent capabilities.
-    
+
     Provides:
     - Agent creation from configurations
-    - Agent configuration management  
+    - Agent configuration management
     - Automatic agent config snapshotting
     - Enhanced logging for agent usage
     """
@@ -141,19 +144,19 @@ class AgentExperiment(Experiment):
                 "temperature": 0.7,
                 "max_tokens": 4096,
             },
-            provider_auth={
-                "api_key": "your-api-key-here"
-            },
+            provider_auth={"api_key": "your-api-key-here"},
             custom_configs={
                 "retry_attempts": 3,
                 "rate_limit_rpm": 60,
                 "logging_enabled": True,
                 "cache_responses": False,
             },
-            tools=[]
+            tools=[],
         )
 
-    def create_agent_config(self, agent_name: str, config: Optional[AgentConfig] = None, **config_overrides) -> Path:
+    def create_agent_config(
+        self, agent_name: str, config: Optional[AgentConfig] = None, **config_overrides
+    ) -> Path:
         """Create a new agent configuration with optional overrides."""
         if config is None:
             config = self._create_default_agent_config(agent_name)
@@ -162,7 +165,7 @@ class AgentExperiment(Experiment):
         if config_overrides:
             # Create a copy with overrides applied
             config_dict = config.to_dict()
-            
+
             for key, value in config_overrides.items():
                 if key in config_dict:
                     config_dict[key] = value
@@ -171,7 +174,7 @@ class AgentExperiment(Experiment):
                         config_dict[key].update(value)
                     else:
                         config_dict[key] = value
-            
+
             config = AgentConfig.from_dict(config_dict)
 
         # Save to agent-specific config file
@@ -200,14 +203,14 @@ class AgentExperiment(Experiment):
     def create_agent(self, agent_name: str, **overrides):
         """
         Create an agent instance from experiment configuration.
-        
+
         Args:
             agent_name: Name of the agent configuration to load
             **overrides: Optional configuration overrides (e.g., prompt="custom:v2")
-        
+
         Returns:
             Agent instance
-            
+
         Raises:
             ValueError: If agent configuration is not found
         """
@@ -215,7 +218,7 @@ class AgentExperiment(Experiment):
         config = self.load_agent_config(agent_name)
         if config is None:
             raise ValueError(f"Agent configuration '{agent_name}' not found")
-        
+
         # Apply any overrides
         if overrides:
             # Create a copy of the config with overrides
@@ -228,9 +231,9 @@ class AgentExperiment(Experiment):
                 "model_parameters": config.model_parameters.copy(),
                 "provider_auth": config.provider_auth.copy(),
                 "custom_configs": config.custom_configs.copy(),
-                "tools": config.tools.copy()
+                "tools": config.tools.copy(),
             }
-            
+
             # Apply overrides
             for key, value in overrides.items():
                 if key in config_dict:
@@ -240,23 +243,27 @@ class AgentExperiment(Experiment):
                         config_dict[key].update(value)
                     else:
                         config_dict[key] = value
-            
+
             config = AgentConfig.from_dict(config_dict)
-        
+
         # Create agent using the Agent factory
         agent = Agent.create(config)
-        
+
         # Log agent creation in current run context if available
         from dsat.scryptorum.core.decorators import get_current_run
+
         current_run = get_current_run()
         if current_run:
-            current_run.log_agent_created(agent_name, {
-                "model_provider": config.model_provider,
-                "model_family": config.model_family, 
-                "model_version": config.model_version,
-                "prompt": config.prompt
-            })
-        
+            current_run.log_agent_created(
+                agent_name,
+                {
+                    "model_provider": config.model_provider,
+                    "model_family": config.model_family,
+                    "model_version": config.model_version,
+                    "prompt": config.prompt,
+                },
+            )
+
         return agent
 
     def update_agent_config(self, agent_name: str, updates: Dict[str, any]) -> bool:
@@ -283,33 +290,35 @@ class AgentExperiment(Experiment):
             return True
         return False
 
-    def create_run(self, run_type: RunType = RunType.TRIAL, run_id: Optional[str] = None):
+    def create_run(
+        self, run_type: RunType = RunType.TRIAL, run_id: Optional[str] = None
+    ):
         """Create an AgentRun with agent config snapshotting for milestone runs."""
         # Create AgentRun instead of base Run
         run = AgentRun(self.experiment_path, run_type, run_id)
-        
+
         # For milestone runs, automatically snapshot agent configs
         if run_type == RunType.MILESTONE:
             run.snapshot_agent_configs(self.config_dir)
-        
+
         return run
 
     def _update_experiment_metadata(self) -> None:
         """Create or update experiment metadata with agent information."""
         super()._update_experiment_metadata()
-        
+
         # Add agent-specific metadata
         metadata_file = self.experiment_path / "experiment.json"
-        
+
         if metadata_file.exists():
-            with open(metadata_file, 'r') as f:
+            with open(metadata_file, "r") as f:
                 metadata = json.load(f)
         else:
             metadata = {}
-        
+
         # Add agent information
         metadata["agents_enabled"] = True
         metadata["agent_configs"] = self.list_agent_configs()
-        
-        with open(metadata_file, 'w') as f:
+
+        with open(metadata_file, "w") as f:
             json.dump(metadata, f, indent=2)

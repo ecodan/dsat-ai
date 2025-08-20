@@ -19,20 +19,33 @@ class GoogleVertexAIAgent(Agent):
     Google Vertex AI LLM agent.
     """
 
-    def __init__(self, config: AgentConfig = None, project_id: str = None, location: str = None, model: str = None, logger: logging.Logger = None, prompts_dir = None):
+    def __init__(
+        self,
+        config: AgentConfig = None,
+        project_id: str = None,
+        location: str = None,
+        model: str = None,
+        logger: logging.Logger = None,
+        prompts_dir=None,
+    ):
         # Support both old API (project_id, location, model) and new API (config)
         if config is None:
             # Backward compatibility - create config from parameters
             if project_id is None or model is None:
-                raise ValueError("Either config must be provided, or both project_id and model must be provided")
-                
+                raise ValueError(
+                    "Either config must be provided, or both project_id and model must be provided"
+                )
+
             config = AgentConfig(
                 agent_name="vertex",
                 model_provider="google",
-                model_family="gemini", 
+                model_family="gemini",
                 model_version=model,
                 prompt="default:v1",
-                provider_auth={"project_id": project_id, "location": location or "us-central1"}
+                provider_auth={
+                    "project_id": project_id,
+                    "location": location or "us-central1",
+                },
             )
         else:
             # Use provided config, but allow parameter overrides for backward compatibility
@@ -40,22 +53,26 @@ class GoogleVertexAIAgent(Agent):
                 config.provider_auth["project_id"] = project_id
             if location is not None:
                 config.provider_auth["location"] = location
-        
+
         # Use provided logger or create a default one
         if logger is None:
             logger = logging.getLogger(__name__)
-        
+
         super().__init__(config, logger, prompts_dir)
-        
+
         if not VERTEX_AI_AVAILABLE:
-            raise ImportError("google-cloud-aiplatform package is required for Google Vertex AI support")
+            raise ImportError(
+                "google-cloud-aiplatform package is required for Google Vertex AI support"
+            )
 
         # Get auth parameters from config
         project_id_from_config = config.provider_auth.get("project_id")
         location_from_config = config.provider_auth.get("location", "us-central1")
-        
+
         if not project_id_from_config:
-            raise ValueError("project_id is required in provider_auth for GoogleVertexAIAgent")
+            raise ValueError(
+                "project_id is required in provider_auth for GoogleVertexAIAgent"
+            )
 
         vertexai.init(project=project_id_from_config, location=location_from_config)
         self.client = GenerativeModel(config.model_version)
@@ -65,17 +82,17 @@ class GoogleVertexAIAgent(Agent):
         model_params = self.config.model_parameters or {}
         temperature = model_params.get("temperature", 0.3)
         max_output_tokens = model_params.get("max_output_tokens", 20000)
-        
+
         # Use provided system prompt or load from prompt manager
         if system_prompt is None:
             system_prompt = self.get_system_prompt()
-        
+
         # Combine system and user prompts for Vertex AI
         if system_prompt:
             full_prompt = f"{system_prompt}\n\n{user_prompt}"
         else:
             full_prompt = user_prompt
-        
+
         # Prepare request data for logging
         request_data = {
             "user_prompt": user_prompt,
@@ -83,8 +100,8 @@ class GoogleVertexAIAgent(Agent):
             "full_prompt": full_prompt,
             "model_parameters": {
                 "temperature": temperature,
-                "max_output_tokens": max_output_tokens
-            }
+                "max_output_tokens": max_output_tokens,
+            },
         }
 
         try:
@@ -94,21 +111,31 @@ class GoogleVertexAIAgent(Agent):
                     generation_config={
                         "temperature": temperature,
                         "max_output_tokens": max_output_tokens,
-                    }
+                    },
                 )
 
             self.logger.debug(f"Vertex AI raw response: {response.text}")
-            self.logger.debug(f".. response: {len(response.text)} bytes / {len(response.text.split())} words")
+            self.logger.debug(
+                f".. response: {len(response.text)} bytes / {len(response.text.split())} words"
+            )
 
             # Prepare response data for logging
             response_data = {
                 "content": response.text,
                 "tokens_used": {
-                    "input": getattr(response.usage_metadata, 'prompt_token_count', None) if hasattr(response, 'usage_metadata') else None,
-                    "output": getattr(response.usage_metadata, 'candidates_token_count', None) if hasattr(response, 'usage_metadata') else None
-                }
+                    "input": (
+                        getattr(response.usage_metadata, "prompt_token_count", None)
+                        if hasattr(response, "usage_metadata")
+                        else None
+                    ),
+                    "output": (
+                        getattr(response.usage_metadata, "candidates_token_count", None)
+                        if hasattr(response, "usage_metadata")
+                        else None
+                    ),
+                },
             }
-            
+
             # Log the LLM call if logger is configured
             if self.call_logger:
                 self.call_logger.log_llm_call(
@@ -116,7 +143,7 @@ class GoogleVertexAIAgent(Agent):
                     response_data=response_data,
                     duration_ms=timer.duration_ms,
                     model_provider=self.config.model_provider,
-                    model_version=self.config.model_version
+                    model_version=self.config.model_version,
                 )
 
             return response.text
@@ -127,18 +154,20 @@ class GoogleVertexAIAgent(Agent):
                 self.call_logger.log_llm_call(
                     request_data=request_data,
                     response_data={"error": str(e), "error_type": type(e).__name__},
-                    duration_ms=timer.duration_ms if 'timer' in locals() else 0,
+                    duration_ms=timer.duration_ms if "timer" in locals() else 0,
                     model_provider=self.config.model_provider,
-                    model_version=self.config.model_version
+                    model_version=self.config.model_version,
                 )
-            
+
             self.logger.error(f"Vertex AI API error: {str(e)}")
             raise
 
-    async def invoke_async(self, user_prompt: str, system_prompt: str = None) -> AsyncGenerator[str, None]:
+    async def invoke_async(
+        self, user_prompt: str, system_prompt: str = None
+    ) -> AsyncGenerator[str, None]:
         """
         Send the prompts to Vertex AI and return a streaming async generator of response tokens.
-        
+
         :param user_prompt: Specific user prompt
         :param system_prompt: Optional system prompt override. If None, loads from config via prompt manager.
         :return: AsyncGenerator yielding response text chunks
@@ -147,17 +176,17 @@ class GoogleVertexAIAgent(Agent):
         model_params = self.config.model_parameters or {}
         temperature = model_params.get("temperature", 0.3)
         max_output_tokens = model_params.get("max_output_tokens", 20000)
-        
+
         # Use provided system prompt or load from prompt manager
         if system_prompt is None:
             system_prompt = self.get_system_prompt()
-        
+
         # Combine system and user prompts for Vertex AI
         if system_prompt:
             full_prompt = f"{system_prompt}\n\n{user_prompt}"
         else:
             full_prompt = user_prompt
-        
+
         # Prepare request data for logging
         request_data = {
             "user_prompt": user_prompt,
@@ -165,8 +194,8 @@ class GoogleVertexAIAgent(Agent):
             "full_prompt": full_prompt,
             "model_parameters": {
                 "temperature": temperature,
-                "max_output_tokens": max_output_tokens
-            }
+                "max_output_tokens": max_output_tokens,
+            },
         }
 
         try:
@@ -178,32 +207,34 @@ class GoogleVertexAIAgent(Agent):
                         "temperature": temperature,
                         "max_output_tokens": max_output_tokens,
                     },
-                    stream=True
+                    stream=True,
                 )
-                
+
                 # Collect chunks for logging
                 response_chunks = []
-                
+
                 # Yield tokens as they arrive
                 for chunk in response_stream:
-                    if hasattr(chunk, 'text') and chunk.text:
+                    if hasattr(chunk, "text") and chunk.text:
                         text_chunk = chunk.text
                         response_chunks.append(text_chunk)
                         yield text_chunk
 
             # After streaming is complete, log the full response
-            full_response = ''.join(response_chunks)
-            self.logger.debug(f"Vertex AI async response complete: {len(full_response)} bytes / {len(full_response.split())} words")
+            full_response = "".join(response_chunks)
+            self.logger.debug(
+                f"Vertex AI async response complete: {len(full_response)} bytes / {len(full_response.split())} words"
+            )
 
             # Prepare response data for logging
             response_data = {
                 "content": full_response,
                 "tokens_used": {
                     "input": None,  # Token usage not available in streaming
-                    "output": None
-                }
+                    "output": None,
+                },
             }
-            
+
             # Log the LLM call if logger is configured
             if self.call_logger:
                 self.call_logger.log_llm_call(
@@ -211,7 +242,7 @@ class GoogleVertexAIAgent(Agent):
                     response_data=response_data,
                     duration_ms=timer.duration_ms,
                     model_provider=self.config.model_provider,
-                    model_version=self.config.model_version
+                    model_version=self.config.model_version,
                 )
 
         except Exception as e:
@@ -220,15 +251,14 @@ class GoogleVertexAIAgent(Agent):
                 self.call_logger.log_llm_call(
                     request_data=request_data,
                     response_data={"error": str(e), "error_type": type(e).__name__},
-                    duration_ms=timer.duration_ms if 'timer' in locals() else 0,
+                    duration_ms=timer.duration_ms if "timer" in locals() else 0,
                     model_provider=self.config.model_provider,
-                    model_version=self.config.model_version
+                    model_version=self.config.model_version,
                 )
-            
+
             self.logger.error(f"Vertex AI API error in streaming: {str(e)}")
             raise
 
     @property
     def model(self) -> str:
         return self.config.model_version
-

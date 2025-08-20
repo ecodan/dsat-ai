@@ -18,11 +18,12 @@ class ConfigManager:
     def save_config(self, config_name: str, config_data: Dict[str, Any]) -> Path:
         """Save a configuration to JSON file."""
         config_file = self.config_dir / f"{config_name}.json"
-        
+
         import json
-        with open(config_file, 'w') as f:
+
+        with open(config_file, "w") as f:
             json.dump(config_data, f, indent=2)
-        
+
         return config_file
 
     def load_config(self, config_name: str) -> Optional[Dict[str, Any]]:
@@ -32,8 +33,9 @@ class ConfigManager:
             return None
 
         import json
+
         try:
-            with open(config_file, 'r') as f:
+            with open(config_file, "r") as f:
                 return json.load(f)
         except (json.JSONDecodeError, OSError):
             return None

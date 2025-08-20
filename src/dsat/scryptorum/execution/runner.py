@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, Optional, Type
 from ..core.decorators import run_context
 from ..core.experiment import Experiment
 from ..core.runs import Run, RunType
+
 # Removed logging_utils import - now use logger directly from runs
 
 
@@ -115,10 +116,10 @@ class Runner:
         cwd_src = Path.cwd() / "src"
         if cwd_src.exists() and str(cwd_src) not in sys.path:
             sys.path.insert(0, str(cwd_src))
-        
+
         try:
             # Handle different module path formats
-            if "/" in module_path or "\\" in module_path or module_path.endswith('.py'):
+            if "/" in module_path or "\\" in module_path or module_path.endswith(".py"):
                 # File path format
                 module_file = Path(module_path)
                 if not module_file.exists():
@@ -152,19 +153,24 @@ class Runner:
                     attr = getattr(module, attr_name)
                     if isinstance(attr, type):
                         found_classes.append(attr_name)
-                        if (hasattr(attr, "execute") and callable(getattr(attr, "execute"))) or (hasattr(attr, "run") and callable(getattr(attr, "run"))):
+                        if (
+                            hasattr(attr, "execute")
+                            and callable(getattr(attr, "execute"))
+                        ) or (hasattr(attr, "run") and callable(getattr(attr, "run"))):
                             # Found a runnable class (debug)
                             # Skip BaseRunnable itself - we want concrete implementations
                             if attr_name != "BaseRunnable":
                                 runnable_candidates.append(attr)
-                
+
                 # Return the first concrete runnable found
                 if runnable_candidates:
                     return runnable_candidates[0]
 
                 # All classes in module (debug): {found_classes}
                 diagnostic_info = self._get_diagnostic_info()
-                available_attrs = [attr for attr in dir(module) if not attr.startswith('_')]
+                available_attrs = [
+                    attr for attr in dir(module) if not attr.startswith("_")
+                ]
                 raise ValueError(
                     f"No runnable class found in {module_path}\n"
                     f"Available attributes: {available_attrs}\n"
@@ -188,19 +194,24 @@ class Runner:
                     attr = getattr(module, attr_name)
                     if isinstance(attr, type):
                         found_classes.append(attr_name)
-                        if (hasattr(attr, "execute") and callable(getattr(attr, "execute"))) or (hasattr(attr, "run") and callable(getattr(attr, "run"))):
+                        if (
+                            hasattr(attr, "execute")
+                            and callable(getattr(attr, "execute"))
+                        ) or (hasattr(attr, "run") and callable(getattr(attr, "run"))):
                             # Found a runnable class (debug)
                             # Skip BaseRunnable itself - we want concrete implementations
                             if attr_name != "BaseRunnable":
                                 runnable_candidates.append(attr)
-                
+
                 # Return the first concrete runnable found
                 if runnable_candidates:
                     return runnable_candidates[0]
-                
+
                 # All classes in module (debug): {found_classes}
                 diagnostic_info = self._get_diagnostic_info()
-                available_attrs = [attr for attr in dir(module) if not attr.startswith('_')]
+                available_attrs = [
+                    attr for attr in dir(module) if not attr.startswith("_")
+                ]
                 raise ValueError(
                     f"No runnable class found in {module_path}\n"
                     f"Available attributes: {available_attrs}\n"
@@ -224,19 +235,24 @@ class Runner:
                     attr = getattr(module, attr_name)
                     if isinstance(attr, type):
                         found_classes.append(attr_name)
-                        if (hasattr(attr, "execute") and callable(getattr(attr, "execute"))) or (hasattr(attr, "run") and callable(getattr(attr, "run"))):
+                        if (
+                            hasattr(attr, "execute")
+                            and callable(getattr(attr, "execute"))
+                        ) or (hasattr(attr, "run") and callable(getattr(attr, "run"))):
                             # Found a runnable class (debug)
                             # Skip BaseRunnable itself - we want concrete implementations
                             if attr_name != "BaseRunnable":
                                 runnable_candidates.append(attr)
-                
+
                 # Return the first concrete runnable found
                 if runnable_candidates:
                     return runnable_candidates[0]
-                    
+
                 # All classes in module (debug): {found_classes}
                 diagnostic_info = self._get_diagnostic_info()
-                available_attrs = [attr for attr in dir(module) if not attr.startswith('_')]
+                available_attrs = [
+                    attr for attr in dir(module) if not attr.startswith("_")
+                ]
                 raise ValueError(
                     f"No runnable class found in {module_path}\n"
                     f"Available attributes: {available_attrs}\n"
@@ -254,12 +270,12 @@ class Runner:
 
         last_exception = None
         skip_score = False
-        
+
         for stage in stages:
             # Skip score stage if execute failed
             if stage == "score" and skip_score:
                 continue
-                
+
             run.logger.debug(f"Checking stage '{stage}'...")
             if hasattr(runnable, stage):
                 method = getattr(runnable, stage)
@@ -283,7 +299,7 @@ class Runner:
                             if stage == "execute":
                                 # Skip score stage after execute failure
                                 skip_score = True
-        
+
         # Re-raise the last exception after cleanup has run
         if last_exception:
             raise last_exception
@@ -304,7 +320,7 @@ class BaseRunnable:
     def execute(self) -> None:
         """Override to add main execution logic."""
         raise NotImplementedError("Subclasses must implement execute()")
-        
+
     def run(self) -> None:
         """Deprecated: Use execute() instead. Kept for backward compatibility."""
         return self.execute()

@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch, mock_open
 
-from src.agents.agent import AgentConfig
+from dsat.agents.agent import AgentConfig
 
 
 class TestAgentConfig:
@@ -415,3 +415,313 @@ prompt = "assistant:v2"
         # Original dict should be unchanged
         assert original_dict == original_copy
         assert config.agent_name == "test"
+
+    def test_load_from_file_with_models_section(self):
+        """Test loading agent configs with _models section."""
+        test_configs = {
+            "_models": {
+                "claude-model": {
+                    "model_provider": "anthropic",
+                    "model_family": "claude",
+                    "model_version": "claude-3-5-haiku",
+                    "model_parameters": {"temperature": 0.7},
+                    "provider_auth": {"api_key": "sk-test"}
+                },
+                "gpt-model": {
+                    "model_provider": "openai",
+                    "model_family": "gpt",
+                    "model_version": "gpt-4o",
+                    "model_parameters": {"temperature": 0.8}
+                }
+            },
+            "agent1": {
+                "model_id": "claude-model",
+                "prompt": "assistant:v1"
+            },
+            "agent2": {
+                "model_id": "gpt-model", 
+                "prompt": "assistant:v2",
+                "model_parameters": {"temperature": 0.9}  # Override
+            }
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(test_configs, f)
+            temp_file_path = f.name
+        
+        try:
+            configs = AgentConfig.load_from_file(temp_file_path)
+            
+            assert len(configs) == 2
+            
+            # Check agent1 - should inherit model config
+            agent1 = configs["agent1"]
+            assert agent1.agent_name == "agent1"
+            assert agent1.model_provider == "anthropic"
+            assert agent1.model_family == "claude"
+            assert agent1.model_version == "claude-3-5-haiku"
+            assert agent1.prompt == "assistant:v1"
+            assert agent1.model_parameters == {"temperature": 0.7}
+            assert agent1.provider_auth == {"api_key": "sk-test"}
+            
+            # Check agent2 - should inherit model config with override
+            agent2 = configs["agent2"]
+            assert agent2.agent_name == "agent2"
+            assert agent2.model_provider == "openai"
+            assert agent2.model_family == "gpt"
+            assert agent2.model_version == "gpt-4o"
+            assert agent2.prompt == "assistant:v2"
+            assert agent2.model_parameters == {"temperature": 0.9}  # Overridden
+        finally:
+            Path(temp_file_path).unlink()
+
+    def test_load_from_file_model_id_unknown_reference(self):
+        """Test load_from_file raises error for unknown model_id reference."""
+        test_configs = {
+            "_models": {
+                "existing-model": {
+                    "model_provider": "anthropic",
+                    "model_family": "claude",
+                    "model_version": "claude-3-5-haiku"
+                }
+            },
+            "agent1": {
+                "model_id": "nonexistent-model",  # This doesn't exist
+                "prompt": "assistant:v1"
+            }
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(test_configs, f)
+            temp_file_path = f.name
+        
+        try:
+            with pytest.raises(ValueError, match="Agent 'agent1' references unknown model_id: 'nonexistent-model'"):
+                AgentConfig.load_from_file(temp_file_path)
+        finally:
+            Path(temp_file_path).unlink()
+
+    def test_load_from_file_model_id_conflict_with_model_fields(self):
+        """Test load_from_file raises error when model_id conflicts with direct model fields."""
+        test_configs = {
+            "_models": {
+                "test-model": {
+                    "model_provider": "anthropic",
+                    "model_family": "claude",
+                    "model_version": "claude-3-5-haiku"
+                }
+            },
+            "agent1": {
+                "model_id": "test-model",
+                "model_provider": "openai",  # Conflict!
+                "prompt": "assistant:v1"
+            }
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(test_configs, f)
+            temp_file_path = f.name
+        
+        try:
+            with pytest.raises(ValueError, match="Agent 'agent1' has model_id='test-model' but also defines: model_provider"):
+                AgentConfig.load_from_file(temp_file_path)
+        finally:
+            Path(temp_file_path).unlink()
+
+    def test_load_from_file_invalid_models_section_not_dict(self):
+        """Test load_from_file raises error when _models is not a dictionary."""
+        test_configs = {
+            "_models": ["not", "a", "dict"],  # Invalid
+            "agent1": {
+                "model_provider": "anthropic",
+                "model_family": "claude",
+                "model_version": "claude-3-5-haiku",
+                "prompt": "assistant:v1"
+            }
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(test_configs, f)
+            temp_file_path = f.name
+        
+        try:
+            with pytest.raises(ValueError, match="_models section must be a dictionary"):
+                AgentConfig.load_from_file(temp_file_path)
+        finally:
+            Path(temp_file_path).unlink()
+
+    def test_load_from_file_invalid_model_config_not_dict(self):
+        """Test load_from_file raises error when model config is not a dictionary."""
+        test_configs = {
+            "_models": {
+                "test-model": "not a dict"  # Invalid
+            },
+            "agent1": {
+                "model_id": "test-model",
+                "prompt": "assistant:v1"
+            }
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(test_configs, f)
+            temp_file_path = f.name
+        
+        try:
+            with pytest.raises(ValueError, match="Model 'test-model' configuration must be a dictionary"):
+                AgentConfig.load_from_file(temp_file_path)
+        finally:
+            Path(temp_file_path).unlink()
+
+    def test_load_from_file_model_missing_required_fields(self):
+        """Test load_from_file raises error when model config is missing required fields."""
+        test_configs = {
+            "_models": {
+                "incomplete-model": {
+                    "model_provider": "anthropic",
+                    # Missing model_family and model_version
+                }
+            },
+            "agent1": {
+                "model_id": "incomplete-model",
+                "prompt": "assistant:v1"
+            }
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(test_configs, f)
+            temp_file_path = f.name
+        
+        try:
+            with pytest.raises(ValueError, match="Model 'incomplete-model' missing required field: model_family"):
+                AgentConfig.load_from_file(temp_file_path)
+        finally:
+            Path(temp_file_path).unlink()
+
+    def test_load_from_file_model_parameter_merging(self):
+        """Test that model_parameters merge correctly with agent config taking precedence."""
+        test_configs = {
+            "_models": {
+                "test-model": {
+                    "model_provider": "anthropic",
+                    "model_family": "claude",
+                    "model_version": "claude-3-5-haiku",
+                    "model_parameters": {
+                        "temperature": 0.7,
+                        "max_tokens": 1000,
+                        "top_p": 0.9
+                    }
+                }
+            },
+            "agent1": {
+                "model_id": "test-model",
+                "prompt": "assistant:v1",
+                "model_parameters": {
+                    "temperature": 0.9,  # Override
+                    "top_k": 40  # Additional parameter
+                }
+            }
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(test_configs, f)
+            temp_file_path = f.name
+        
+        try:
+            configs = AgentConfig.load_from_file(temp_file_path)
+            agent1 = configs["agent1"]
+            
+            expected_params = {
+                "temperature": 0.9,      # Overridden by agent
+                "max_tokens": 1000,      # From model
+                "top_p": 0.9,           # From model
+                "top_k": 40             # From agent
+            }
+            assert agent1.model_parameters == expected_params
+        finally:
+            Path(temp_file_path).unlink()
+
+    def test_load_from_file_provider_auth_merging(self):
+        """Test that provider_auth merge correctly with agent config taking precedence."""
+        test_configs = {
+            "_models": {
+                "test-model": {
+                    "model_provider": "anthropic",
+                    "model_family": "claude",
+                    "model_version": "claude-3-5-haiku",
+                    "provider_auth": {
+                        "api_key": "model-key",
+                        "base_url": "https://api.example.com"
+                    }
+                }
+            },
+            "agent1": {
+                "model_id": "test-model",
+                "prompt": "assistant:v1",
+                "provider_auth": {
+                    "api_key": "agent-key",  # Override
+                    "timeout": 30           # Additional setting
+                }
+            }
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(test_configs, f)
+            temp_file_path = f.name
+        
+        try:
+            configs = AgentConfig.load_from_file(temp_file_path)
+            agent1 = configs["agent1"]
+            
+            expected_auth = {
+                "api_key": "agent-key",              # Overridden by agent
+                "base_url": "https://api.example.com", # From model
+                "timeout": 30                        # From agent
+            }
+            assert agent1.provider_auth == expected_auth
+        finally:
+            Path(temp_file_path).unlink()
+
+    def test_load_from_file_mixed_model_configs(self):
+        """Test loading file with both model_id and direct model configurations."""
+        test_configs = {
+            "_models": {
+                "shared-model": {
+                    "model_provider": "anthropic",
+                    "model_family": "claude",
+                    "model_version": "claude-3-5-haiku",
+                    "model_parameters": {"temperature": 0.7}
+                }
+            },
+            "agent_with_model_id": {
+                "model_id": "shared-model",
+                "prompt": "assistant:v1"
+            },
+            "agent_with_direct_config": {
+                "model_provider": "openai",
+                "model_family": "gpt",
+                "model_version": "gpt-4o",
+                "prompt": "assistant:v2",
+                "model_parameters": {"temperature": 0.8}
+            }
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(test_configs, f)
+            temp_file_path = f.name
+        
+        try:
+            configs = AgentConfig.load_from_file(temp_file_path)
+            
+            # Agent using model_id
+            agent1 = configs["agent_with_model_id"]
+            assert agent1.model_provider == "anthropic"
+            assert agent1.model_family == "claude"
+            assert agent1.model_parameters == {"temperature": 0.7}
+            
+            # Agent with direct config
+            agent2 = configs["agent_with_direct_config"] 
+            assert agent2.model_provider == "openai"
+            assert agent2.model_family == "gpt"
+            assert agent2.model_parameters == {"temperature": 0.8}
+        finally:
+            Path(temp_file_path).unlink()
