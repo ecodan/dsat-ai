@@ -92,10 +92,10 @@ class ChatSession:
         
         # Manage memory if enabled
         if self.agent.config.memory_enabled:
-            # Compact memory if we exceed the limit
+            # Prune memory if we exceed the limit
             total_tokens = self.memory_manager.calculate_total_tokens(self.messages)
             if total_tokens > self.agent.config.max_memory_tokens:
-                self.messages = self.memory_manager.compact_memory(self.messages)
+                self.messages = self.memory_manager.prune_memory(self.messages)
             
             # Save to persistent storage
             self._save_conversation()
@@ -106,10 +106,10 @@ class ChatSession:
         if self.agent.config.memory_enabled:
             self._save_conversation()
 
-    def compact_memory(self, preserve_recent: int = 5):
-        """Manually compact memory while preserving recent messages."""
+    def prune_memory(self, preserve_recent: int = 5):
+        """Manually prune older messages while preserving recent messages."""
         if self.agent.config.memory_enabled:
-            self.messages = self.memory_manager.compact_memory(self.messages, preserve_recent)
+            self.messages = self.memory_manager.prune_memory(self.messages, preserve_recent)
             self._save_conversation()
 
     def get_memory_stats(self) -> Dict[str, Any]:
@@ -120,7 +120,7 @@ class ChatSession:
         """
         Get conversation history for agent context.
         
-        Returns the current messages list which is already compacted
+        Returns the current messages list which is already pruned
         and within memory limits.
         
         :return: List of ConversationMessage objects for agent context
@@ -214,7 +214,7 @@ class ChatInterface:
             f"  {Fore.GREEN}/clear{Style.RESET_ALL}                - Clear conversation history"
         )
         print(
-            f"  {Fore.GREEN}/compact{Style.RESET_ALL}              - Compact memory to save space"
+            f"  {Fore.GREEN}/prune{Style.RESET_ALL}                - Prune older messages to save space"
         )
         print(
             f"  {Fore.GREEN}/memory{Style.RESET_ALL}               - Show memory usage statistics"
@@ -333,8 +333,8 @@ class ChatInterface:
             self._show_history()
         elif cmd == "clear":
             self._clear_history()
-        elif cmd == "compact":
-            self._compact_memory()
+        elif cmd == "prune":
+            self._prune_memory()
         elif cmd == "memory":
             self._show_memory_stats()
         elif cmd == "export":
@@ -405,8 +405,8 @@ class ChatInterface:
         else:
             print(f"{Fore.YELLOW}No active session.{Style.RESET_ALL}")
 
-    def _compact_memory(self):
-        """Compact conversation memory to reduce token usage."""
+    def _prune_memory(self):
+        """Prune older conversation messages to reduce token usage."""
         if not self.current_session:
             print(f"{Fore.YELLOW}No active session.{Style.RESET_ALL}")
             return
@@ -415,16 +415,16 @@ class ChatInterface:
             print(f"{Fore.YELLOW}Memory management is disabled for this agent.{Style.RESET_ALL}")
             return
 
-        # Get stats before compaction
+        # Get stats before pruning
         before_stats = self.current_session.get_memory_stats()
         
-        # Compact memory
-        self.current_session.compact_memory()
+        # Prune memory
+        self.current_session.prune_memory()
         
-        # Get stats after compaction
+        # Get stats after pruning
         after_stats = self.current_session.get_memory_stats()
         
-        print(f"{Fore.GREEN}Memory compacted successfully!{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}Memory pruned successfully!{Style.RESET_ALL}")
         print(f"Messages: {before_stats['total_messages']} → {after_stats['total_messages']}")
         print(f"Tokens: {before_stats['total_tokens']} → {after_stats['total_tokens']}")
         print(f"Memory usage: {before_stats['memory_usage_percent']}% → {after_stats['memory_usage_percent']}%")
@@ -459,7 +459,7 @@ class ChatInterface:
         print(f"  Status: {usage_color}{'Memory full' if stats['memory_usage_percent'] >= 100 else 'OK'}{Style.RESET_ALL}")
         
         if stats['memory_usage_percent'] > 90:
-            print(f"\n{Fore.YELLOW}💡 Consider using {Fore.GREEN}/compact{Fore.YELLOW} to reduce memory usage.{Style.RESET_ALL}")
+            print(f"\n{Fore.YELLOW}💡 Consider using {Fore.GREEN}/prune{Fore.YELLOW} to reduce memory usage.{Style.RESET_ALL}")
         
         print()
 

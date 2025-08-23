@@ -119,10 +119,10 @@ class MemoryManager:
         
         return truncated + "..."
     
-    def compact_memory(self, messages: List[ConversationMessage], 
-                      preserve_recent: int = 5) -> List[ConversationMessage]:
+    def prune_memory(self, messages: List[ConversationMessage], 
+                    preserve_recent: int = 5) -> List[ConversationMessage]:
         """
-        Compact memory by removing older messages while staying under token limit.
+        Prune memory by removing older messages while staying under token limit.
         
         Uses a sliding window approach that preserves:
         - Recent N messages
@@ -130,7 +130,7 @@ class MemoryManager:
         
         :param messages: List of conversation messages
         :param preserve_recent: Number of recent messages to always preserve
-        :return: Compacted list of messages
+        :return: Pruned list of messages
         """
         if not messages:
             return messages
