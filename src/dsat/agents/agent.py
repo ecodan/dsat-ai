@@ -551,7 +551,7 @@ class Agent(metaclass=ABCMeta):
         providers = {}
 
         # Built-in providers
-        built_in = ["anthropic", "google", "ollama"]
+        built_in = ["anthropic", "google", "ollama", "litellm"]
         for provider in built_in:
             providers[provider] = "built-in"
 
@@ -751,6 +751,24 @@ class Agent(metaclass=ABCMeta):
 
             return OllamaAgent(
                 config=config, base_url=base_url, logger=logger, prompts_dir=prompts_dir
+            )
+
+        elif provider == "litellm":
+            # Check if LiteLLM is available
+            try:
+                from .litellm_agent import LiteLLMAgent, LITELLM_AVAILABLE
+
+                if not LITELLM_AVAILABLE:
+                    raise ImportError(
+                        "litellm package is required for LiteLLM provider"
+                    )
+            except ImportError:
+                raise ImportError(
+                    "litellm package is required for LiteLLM provider. Install with: pip install litellm"
+                )
+
+            return LiteLLMAgent(
+                config=config, logger=logger, prompts_dir=prompts_dir
             )
 
         else:

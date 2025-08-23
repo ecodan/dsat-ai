@@ -46,3 +46,12 @@ try:
 except ImportError:
     GoogleVertexAIAgent = None
     VERTEX_AI_AVAILABLE = False
+
+try:
+    from .litellm_agent import LiteLLMAgent, LITELLM_AVAILABLE
+
+    if LITELLM_AVAILABLE:
+        __all__.append("LiteLLMAgent")
+except ImportError:
+    LiteLLMAgent = None
+    LITELLM_AVAILABLE = False

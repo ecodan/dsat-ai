@@ -1,6 +1,6 @@
 # Agents System Documentation
 
-The DSAT agents system provides a unified interface for working with multiple LLM providers through a configuration-driven approach. It supports Anthropic Claude, Google Vertex AI, and Ollama models with real-time streaming, extensible prompt management, and comprehensive logging.
+The DSAT agents system provides a unified interface for working with multiple LLM providers through a configuration-driven approach. It supports Anthropic Claude, Google Vertex AI, Ollama models, and **100+ LLM providers via LiteLLM integration** with real-time streaming, extensible prompt management, and comprehensive logging.
 
 ## Quick Start
 
@@ -17,6 +17,15 @@ pip install anthropic
 
 # With Google Vertex AI support  
 pip install google-cloud-aiplatform
+
+# With LiteLLM support (100+ providers)
+pip install litellm
+
+# Or install via uv with specific extras
+uv sync --extra anthropics  # Anthropic only
+uv sync --extra google      # Google only  
+uv sync --extra litellm     # LiteLLM only
+uv sync --extra all         # All providers
 ```
 
 ### Basic Usage
@@ -25,16 +34,28 @@ pip install google-cloud-aiplatform
 from src.agents.agent import Agent, AgentConfig
 import asyncio
 
-# Create a configuration
+# Create a configuration (Anthropic example)
 config = AgentConfig(
     agent_name="my_assistant",
-    model_provider="anthropic",
+    model_provider="anthropic",  # or "google", "ollama", "litellm"
     model_family="claude", 
     model_version="claude-3-5-haiku-latest",
     prompt="assistant:v1",
     provider_auth={"api_key": "your-api-key"},
     model_parameters={"temperature": 0.7, "max_tokens": 4096},
     stream=True  # Enable streaming support
+)
+
+# Alternative: LiteLLM for 100+ providers
+litellm_config = AgentConfig(
+    agent_name="my_assistant",
+    model_provider="litellm",
+    model_family="openai",
+    model_version="openai/gpt-4o",  # Format: provider/model_name
+    prompt="assistant:v1", 
+    provider_auth={"api_key": "your-openai-key"},
+    model_parameters={"temperature": 0.7, "max_tokens": 4096},
+    stream=True
 )
 
 # Create and use the agent
@@ -62,7 +83,7 @@ The `AgentConfig` class defines the configuration for an agent:
 ```python
 config = AgentConfig(
     agent_name="assistant",           # Required: Unique identifier
-    model_provider="anthropic",       # Required: "anthropic", "google", or "ollama" 
+    model_provider="anthropic",       # Required: "anthropic", "google", "ollama", or "litellm"
     model_family="claude",           # Required: Model family
     model_version="claude-3-5-haiku-latest",  # Required: Specific model
     prompt="assistant:v1",         # Required: Prompt in format "name:version" or "name:latest"
@@ -200,8 +221,16 @@ ollama_config = AgentConfig(
     stream=True
 )
 
+# LiteLLM (100+ providers)
+litellm_config = AgentConfig(
+    model_provider="litellm",
+    model_version="openai/gpt-4o",
+    # ... other config
+    stream=True
+)
+
 # All support the same streaming interface
-for config in [claude_config, vertex_config, ollama_config]:
+for config in [claude_config, vertex_config, ollama_config, litellm_config]:
     agent = Agent.create(config)
     async for chunk in agent.invoke_async("Hello"):
         print(chunk, end='', flush=True)
@@ -287,6 +316,195 @@ config = AgentConfig(
 - Ollama installed and running (`ollama serve`)
 - Required model available (`ollama pull qwen`)
 - `requests` and `aiohttp` packages (included in DSAT dependencies)
+
+### LiteLLM (100+ Providers)
+
+LiteLLM provides unified access to 100+ LLM providers through a single interface:
+
+```python
+config = AgentConfig(
+    agent_name="litellm_agent",
+    model_provider="litellm",
+    model_family="openai",  # or "anthropic", "google", etc.
+    model_version="openai/gpt-4o",  # Format: provider/model_name
+    prompt="assistant:v1",
+    provider_auth={"api_key": "your-api-key"},
+    model_parameters={
+        "temperature": 0.7,
+        "max_tokens": 4096
+    },
+    stream=True  # Enable real-time streaming
+)
+```
+
+**Model Format:** `provider/model_name` (e.g., `openai/gpt-4o`, `anthropic/claude-3-5-sonnet-20241022`)
+
+**Supported Providers:** OpenAI, Anthropic, Google, Azure, AWS Bedrock, Cohere, HuggingFace, Ollama, Groq, Replicate, Together AI, Fireworks AI, and many more.
+
+## Model Naming & Provider Support
+
+Understanding model naming conventions is crucial for configuring agents correctly. Each provider has specific naming patterns and model discovery resources.
+
+### Quick Reference
+
+| Provider | Format | Example | Model Discovery |
+|----------|--------|---------|----------------|
+| **Anthropic** | `claude-model-version` | `claude-3-5-sonnet-20241022` | [Anthropic Models](https://docs.anthropic.com/en/docs/models-overview) |
+| **Google** | `gemini-model-version` | `gemini-2.0-flash` | [Vertex AI Model Garden](https://cloud.google.com/vertex-ai/generative-ai/docs/models) |
+| **Ollama** | `model-name` | `llama3.2`, `qwen` | `ollama list` (local) |
+| **LiteLLM** | `provider/model-name` | `openai/gpt-4o` | [LiteLLM Models](https://models.litellm.ai/) |
+
+### LiteLLM Model Naming
+
+LiteLLM uses the format `provider/model_name` to access 100+ providers:
+
+#### Major Providers via LiteLLM
+
+**OpenAI Models:**
+```python
+model_version="openai/gpt-4o"                    # Latest GPT-4o
+model_version="openai/gpt-3.5-turbo"            # GPT-3.5 Turbo
+model_version="openai/o3-deep-research-2025-06-26"  # Latest O3 model
+```
+
+**Anthropic Models:**
+```python
+model_version="anthropic/claude-3-5-sonnet-20241022"    # Claude 3.5 Sonnet
+model_version="anthropic/claude-3-haiku-20240307"       # Claude 3 Haiku
+model_version="anthropic/claude-sonnet-4-20250514"      # Claude 4 Sonnet
+```
+
+**Google Models:**
+```python
+model_version="vertex_ai/gemini-1.5-pro"        # Via Vertex AI
+model_version="gemini/gemini-pro"               # Via AI Studio
+```
+
+**Azure Models:**
+```python
+model_version="azure/gpt-4o-eu"                 # Azure deployment
+model_version="azure/your-deployment-name"      # Custom deployment
+```
+
+**Other Popular Providers:**
+```python
+model_version="cohere/command-r-plus"           # Cohere
+model_version="xai/grok-2-1212"                 # XAI Grok
+model_version="ollama/llama2"                   # Ollama (via LiteLLM)
+model_version="huggingface/WizardLM/WizardCoder-Python-34B-V1.0"  # HuggingFace
+```
+
+### Provider-Specific Model Discovery
+
+#### Anthropic (Direct)
+- **Documentation:** https://docs.anthropic.com/en/docs/models-overview
+- **Current Models:** `claude-3-5-haiku-latest`, `claude-3-5-sonnet-latest`, `claude-3-5-sonnet-20241022`
+- **Format:** Use exact model name from Anthropic docs
+
+#### Google Vertex AI (Direct)  
+- **Documentation:** https://cloud.google.com/vertex-ai/generative-ai/docs/models
+- **Model Garden:** Available in Google Cloud Console
+- **Current Models:** `gemini-2.0-flash`, `gemini-1.5-pro`, `gemini-1.5-flash`
+- **Format:** Use model name from Vertex AI documentation
+
+#### Ollama (Local)
+- **Discovery:** `ollama list` (shows installed models)
+- **Installation:** `ollama pull model-name`
+- **Popular Models:** `llama3.2`, `qwen`, `mistral`, `codellama`
+- **Format:** Use model name as registered in Ollama
+
+#### LiteLLM (100+ Providers)
+- **Model Database:** https://models.litellm.ai/
+- **Provider Docs:** https://docs.litellm.ai/docs/providers  
+- **Format:** Always use `provider/model-name`
+- **Discovery:** Check individual provider documentation for latest models
+
+### Model Selection Examples
+
+#### Development vs Production
+```python
+# Development - Fast, cost-effective
+dev_config = AgentConfig(
+    model_provider="litellm",
+    model_version="openai/gpt-3.5-turbo",  # Faster, cheaper
+    # ... other config
+)
+
+# Production - High quality
+prod_config = AgentConfig(
+    model_provider="anthropic", 
+    model_version="claude-3-5-sonnet-20241022",  # Better reasoning
+    # ... other config  
+)
+```
+
+#### Multi-Provider Setup
+```python
+# Direct provider access for primary models
+claude_config = AgentConfig(
+    model_provider="anthropic",
+    model_version="claude-3-5-sonnet-20241022"
+)
+
+# LiteLLM for experimental/backup models  
+experimental_config = AgentConfig(
+    model_provider="litellm",
+    model_version="cohere/command-r-plus"
+)
+```
+
+### Common Model Naming Issues
+
+1. **Wrong Format:** Using `gpt-4o` instead of `openai/gpt-4o` for LiteLLM
+2. **Outdated Names:** Using deprecated model versions
+3. **Provider Mismatch:** Using OpenAI model name with Anthropic provider
+4. **Missing Provider Prefix:** Forgetting `provider/` prefix for LiteLLM
+
+### Model Discovery Tools
+
+```python
+# Check available providers
+from dsat.agents import Agent
+providers = Agent.get_available_providers()
+print(f"Available providers: {list(providers.keys())}")
+
+# For Ollama - check installed models
+# Run: ollama list
+
+# For LiteLLM - check supported providers  
+# Visit: https://docs.litellm.ai/docs/providers
+```
+
+### Model Version Updates
+
+Models are constantly updated by providers. Always refer to official documentation for:
+- **Latest model versions**
+- **Deprecated models** 
+- **New model releases**
+- **Pricing changes**
+- **Capability updates**
+
+### Authentication by Provider
+
+Different providers require different authentication:
+
+```python
+# Anthropic
+provider_auth={"api_key": "sk-ant-..."}
+
+# OpenAI via LiteLLM  
+provider_auth={"api_key": "sk-..."}
+
+# Google Vertex AI
+provider_auth={"project_id": "your-project", "location": "us-central1"}
+
+# Azure via LiteLLM
+provider_auth={
+    "api_key": "your-azure-key",
+    "api_base": "https://your-resource.openai.azure.com/",
+    "api_version": "2023-07-01-preview"
+}
+```
 
 ## Prompt Management
 
@@ -390,6 +608,20 @@ agent = Agent.create(loaded_configs["agent1"])
     "provider_auth": {
       "api_key": "sk-ant-..."
     }
+  },
+  "openai_via_litellm": {
+    "agent_name": "openai_via_litellm",
+    "model_provider": "litellm",
+    "model_family": "openai", 
+    "model_version": "openai/gpt-4o",
+    "prompt": "assistant:v1",
+    "model_parameters": {
+      "temperature": 0.7,
+      "max_tokens": 4096
+    },
+    "provider_auth": {
+      "api_key": "sk-..."
+    }
   }
 }
 ```
@@ -409,6 +641,20 @@ max_tokens = 4096
 
 [assistant.provider_auth]  
 api_key = "sk-ant-..."
+
+[openai_via_litellm]
+agent_name = "openai_via_litellm"
+model_provider = "litellm"
+model_family = "openai"
+model_version = "openai/gpt-4o"
+prompt = "assistant:v1"
+
+[openai_via_litellm.model_parameters]
+temperature = 0.7
+max_tokens = 4096
+
+[openai_via_litellm.provider_auth]
+api_key = "sk-..."
 ```
 
 ## Backward Compatibility
@@ -734,6 +980,8 @@ src/agents/
 ├── agent_logger.py       # LLM call logging system
 ├── anthropic_agent.py    # Anthropic Claude implementation  
 ├── vertex_agent.py       # Google Vertex AI implementation
+├── ollama_agent.py       # Ollama local models implementation
+├── litellm_agent.py      # LiteLLM unified provider implementation
 └── prompts.py           # Prompt management system
 
 examples/

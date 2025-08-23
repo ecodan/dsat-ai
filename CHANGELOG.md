@@ -5,6 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2025-08-23
+
+### Added
+
+#### 🌐 LiteLLM Integration - Access to 100+ LLM Providers
+- **LiteLLMAgent provider** - New `litellm` provider supporting 100+ LLM providers through unified interface
+- **Universal model access** - Access OpenAI, Anthropic, Google, Azure, AWS Bedrock, Cohere, HuggingFace, Groq, Replicate, and many more
+- **Unified API** - Single configuration format works across all LiteLLM-supported providers
+- **Streaming support** - Full streaming functionality with `invoke_async()` for all supported providers
+- **Authentication flexibility** - Support for various authentication methods including API keys, OAuth, and service accounts
+- **Model format** - Use `provider/model_name` format (e.g., `openai/gpt-4o`, `anthropic/claude-3-5-sonnet-20241022`)
+
+### Changed
+
+#### Enhanced Provider Support
+- **Extended provider ecosystem** - From 3 native providers (Anthropic, Google, Ollama) to 100+ via LiteLLM
+- **Dependency management** - Added `litellm` as optional dependency with `uv sync --extra litellm`
+- **Documentation updates** - Comprehensive LiteLLM integration guide with model discovery resources
+
+### Installation
+
+```bash
+# Install with LiteLLM support
+uv sync --extra litellm
+
+# Or all providers
+uv sync --extra all
+```
+
+### Example Usage
+
+```python
+from dsat.agents.agent import Agent, AgentConfig
+
+# OpenAI via LiteLLM
+config = AgentConfig(
+    agent_name="openai_assistant",
+    model_provider="litellm",
+    model_family="openai",
+    model_version="openai/gpt-4o",
+    provider_auth={"api_key": "sk-..."},
+    stream=True
+)
+
+agent = Agent.create(config)
+response = agent.invoke("Hello from OpenAI!")
+
+# Anthropic via LiteLLM  
+anthropic_config = AgentConfig(
+    model_provider="litellm",
+    model_version="anthropic/claude-3-5-sonnet-20241022",
+    provider_auth={"api_key": "sk-ant-..."}
+)
+```
+
+### Provider Coverage
+- **Direct providers**: Anthropic, Google Vertex AI, Ollama (unchanged)
+- **LiteLLM providers**: OpenAI, Azure OpenAI, AWS Bedrock, Cohere, HuggingFace, Groq, Replicate, Together AI, Fireworks AI, XAI Grok, and 90+ more
+- **Model discovery**: https://models.litellm.ai/ for complete provider and model listings
+
 ## [0.3.0] - 2025-08-20
 
 ### Added
