@@ -92,6 +92,17 @@ class AgentConfig:
         Maximum tokens to keep in conversation memory (default: 8000)
     response_truncate_length : int, optional
         Truncate responses longer than this character count (default: 1000)
+    memory_config : dict, optional
+        Memory strategy configuration:
+        {
+            "strategy": "pruning",           # Strategy name: "pruning", "compacting", "sliding_window"
+            "strategy_config": {             # Strategy-specific configuration
+                "preserve_recent": 5,        # For pruning/sliding_window strategies
+                "compaction_ratio": 0.3,     # For compacting strategy
+                "important_keywords": [...]  # For sliding_window strategy
+            },
+            "hooks": ["CustomHook"]          # Custom hook class names
+        }
 
     Model Separation with _models section:
     -------------------------------------
@@ -164,6 +175,7 @@ class AgentConfig:
     memory_enabled: bool = True  # Enable/disable chat history persistence
     max_memory_tokens: int = 8000  # Maximum tokens to keep in conversation memory
     response_truncate_length: int = 1000  # Truncate responses longer than this
+    memory_config: Optional[Dict[str, Any]] = field(default_factory=dict)  # Memory strategy configuration
 
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> "AgentConfig":

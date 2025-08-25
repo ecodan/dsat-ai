@@ -37,21 +37,37 @@ except ImportError:
 
 from ..agents.agent import Agent, AgentConfig
 from .memory import MemoryManager, ConversationMessage, TokenCounter
+from .extensible_memory import ExtensibleMemoryManager
+from .memory_interfaces import BaseMemoryManager
 
 
 class ChatSession:
     """Manages a chat session with conversation history, memory management, and persistence."""
 
-    def __init__(self, agent: Agent, session_id: Optional[str] = None):
+    def __init__(self, agent: Agent, session_id: Optional[str] = None, 
+                 memory_manager: Optional[BaseMemoryManager] = None,
+                 memory_strategy: str = "pruning",
+                 memory_strategy_config: Optional[Dict[str, Any]] = None):
         self.agent = agent
         self.start_time = datetime.now()
         self.session_id = session_id
         
         # Initialize memory manager with agent config
-        self.memory_manager = MemoryManager(
-            max_tokens=agent.config.max_memory_tokens,
-            storage_dir=Path.home() / ".dsat" / "chat_history"
-        )
+        if memory_manager:
+            self.memory_manager = memory_manager
+        else:
+            # Check if agent has memory strategy configuration
+            agent_memory_config = getattr(agent.config, 'memory_config', {})
+            strategy_name = agent_memory_config.get('strategy', memory_strategy)
+            strategy_config = agent_memory_config.get('strategy_config', memory_strategy_config)
+            
+            # Create extensible memory manager
+            self.memory_manager = ExtensibleMemoryManager(
+                max_tokens=agent.config.max_memory_tokens,
+                storage_dir=Path.home() / ".dsat" / "chat_history",
+                strategy_name=strategy_name,
+                strategy_config=strategy_config
+            )
         
         # Load existing conversation if session_id provided and memory enabled
         if session_id and agent.config.memory_enabled:
@@ -80,25 +96,37 @@ class ChatSession:
                 content, self.agent.config.response_truncate_length
             )
         
-        # Create new message
-        message = ConversationMessage(
-            role=role,
-            content=content,
-            timestamp=datetime.now().isoformat(),
-            tokens=TokenCounter.estimate_tokens(content)
-        )
-        
-        self.messages.append(message)
-        
-        # Manage memory if enabled
-        if self.agent.config.memory_enabled:
-            # Prune memory if we exceed the limit
-            total_tokens = self.memory_manager.calculate_total_tokens(self.messages)
-            if total_tokens > self.agent.config.max_memory_tokens:
-                self.messages = self.memory_manager.prune_memory(self.messages)
-            
+        # Use extensible memory manager's add_message method if available
+        if hasattr(self.memory_manager, 'add_message') and self.agent.config.memory_enabled:
+            self.messages = self.memory_manager.add_message(
+                self.messages, role, content,
+                session_id=self.session_id,
+                agent_name=self.agent.config.agent_name,
+                metadata={}
+            )
             # Save to persistent storage
             self._save_conversation()
+        else:
+            # Fallback to original behavior for backward compatibility
+            message = ConversationMessage(
+                role=role,
+                content=content,
+                timestamp=datetime.now().isoformat(),
+                tokens=TokenCounter.estimate_tokens(content)
+            )
+            
+            self.messages.append(message)
+            
+            # Manage memory if enabled
+            if self.agent.config.memory_enabled:
+                # Prune memory if we exceed the limit
+                total_tokens = self.memory_manager.calculate_total_tokens(self.messages)
+                if total_tokens > self.agent.config.max_memory_tokens:
+                    if hasattr(self.memory_manager, 'prune_memory'):
+                        self.messages = self.memory_manager.prune_memory(self.messages)
+                
+                # Save to persistent storage
+                self._save_conversation()
 
     def clear_history(self):
         """Clear conversation history."""
@@ -220,6 +248,9 @@ class ChatInterface:
             f"  {Fore.GREEN}/memory{Style.RESET_ALL}               - Show memory usage statistics"
         )
         print(
+            f"  {Fore.GREEN}/strategies{Style.RESET_ALL}           - List available memory strategies"
+        )
+        print(
             f"  {Fore.GREEN}/export <file>{Style.RESET_ALL}        - Export conversation to file"
         )
         print(
@@ -337,6 +368,8 @@ class ChatInterface:
             self._prune_memory()
         elif cmd == "memory":
             self._show_memory_stats()
+        elif cmd == "strategies":
+            self._show_memory_strategies()
         elif cmd == "export":
             if len(parts) < 2:
                 print(f"{Fore.RED}Usage: /export <filename>{Style.RESET_ALL}")
@@ -428,6 +461,9 @@ class ChatInterface:
         print(f"Messages: {before_stats['total_messages']} → {after_stats['total_messages']}")
         print(f"Tokens: {before_stats['total_tokens']} → {after_stats['total_tokens']}")
         print(f"Memory usage: {before_stats['memory_usage_percent']}% → {after_stats['memory_usage_percent']}%")
+        
+        if before_stats['total_messages'] == after_stats['total_messages']:
+            print(f"{Fore.YELLOW}Note: No messages were removed. Try reducing preserve_recent if you want more aggressive pruning.{Style.RESET_ALL}")
 
     def _show_memory_stats(self):
         """Show current memory usage statistics."""
@@ -460,6 +496,60 @@ class ChatInterface:
         
         if stats['memory_usage_percent'] > 90:
             print(f"\n{Fore.YELLOW}💡 Consider using {Fore.GREEN}/prune{Fore.YELLOW} to reduce memory usage.{Style.RESET_ALL}")
+        
+        print()
+
+    def _show_memory_strategies(self):
+        """Show available memory strategies and current configuration."""
+        if not self.current_session:
+            print(f"{Fore.YELLOW}No active session.{Style.RESET_ALL}")
+            return
+
+        try:
+            from .memory_registry import get_registry
+            registry = get_registry()
+            
+            print(f"\n{Fore.YELLOW}Available Memory Strategies:{Style.RESET_ALL}")
+            
+            # List all available strategies
+            strategies = registry.list_strategies()
+            current_strategy = None
+            
+            # Get current strategy info if using extensible memory manager
+            if hasattr(self.current_session.memory_manager, 'strategy'):
+                current_strategy = self.current_session.memory_manager.strategy
+            
+            for strategy_name in strategies:
+                strategy_info = registry.get_strategy_info(strategy_name)
+                if strategy_info:
+                    current_marker = ""
+                    if current_strategy and current_strategy.name == strategy_info['name']:
+                        current_marker = f" {Fore.GREEN}(current){Style.RESET_ALL}"
+                    
+                    print(f"  {Fore.CYAN}{strategy_name}{Style.RESET_ALL} - {strategy_info['description']}{current_marker}")
+            
+            # Show current strategy configuration
+            if current_strategy:
+                print(f"\n{Fore.YELLOW}Current Strategy Configuration:{Style.RESET_ALL}")
+                print(f"  Strategy: {Fore.GREEN}{current_strategy.name}{Style.RESET_ALL}")
+                print(f"  Description: {current_strategy.description}")
+                
+                if current_strategy.config:
+                    print(f"  Configuration:")
+                    for key, value in current_strategy.config.items():
+                        print(f"    {key}: {value}")
+                else:
+                    print(f"  Configuration: Default settings")
+            
+            # Show plugins info
+            plugins = registry.list_plugins()
+            if plugins:
+                print(f"\n{Fore.YELLOW}Loaded Memory Plugins:{Style.RESET_ALL}")
+                for plugin_info in plugins:
+                    print(f"  {Fore.MAGENTA}{plugin_info['name']}{Style.RESET_ALL} v{plugin_info['version']} - {plugin_info['description']}")
+            
+        except Exception as e:
+            print(f"{Fore.RED}Error retrieving memory strategies: {e}{Style.RESET_ALL}")
         
         print()
 
