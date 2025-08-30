@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] - 2025-08-23
+
+### Added
+- **Date and time in system prompt**: Agent config defaults to adding current date/time to system prompts with `prepend_datetime` (default: true). Can be disabled per-agent.
+
+### Fixed
+- **All unit tests**: Fixed all tests to pass after recent changes.
+
+# [0.3.3] - 2025-08-25
+
+### Added
+- **Modular Memory System**: Supports multiple memory approaches including custom.
+
 ## [0.3.2] - 2025-08-23
 
 ### Changed
