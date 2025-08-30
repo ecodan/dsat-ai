@@ -409,13 +409,56 @@ def run_experiment_command(args) -> None:
                 print(f"Script not found: {script_path}", file=sys.stderr)
                 sys.exit(1)
 
-            # Use the Runner to execute the script
-            runner.run_experiment(
-                experiment_name=args.experiment,
-                runnable_module=str(script_path),
-                run_type=run_type,
-                run_id=args.run_id,
-            )
+            print(f"Executed experiment script: {script_path}")
+            # For scripts, we need to execute them in a way that activates decorators
+            try:
+                # Set up the run type and run_id for decorators
+                from dsat.scryptorum.core.decorators import set_default_run_type, set_default_run_id
+                set_default_run_type(run_type)
+                set_default_run_id(args.run_id)
+                
+                # Execute the script by importing it 
+                import importlib.util
+                
+                # Load and execute the module
+                spec = importlib.util.spec_from_file_location("experiment_script", script_path)
+                module = importlib.util.module_from_spec(spec)
+                sys.modules["experiment_script"] = module
+                
+                # Set the project root globally for decorators
+                import os
+                original_cwd = os.getcwd()
+                os.chdir(project_root)
+                
+                try:
+                    spec.loader.exec_module(module)
+                    
+                    # After loading, look for and execute the main function or decorated function
+                    main_func = None
+                    experiment_func = None
+                    
+                    for attr_name in dir(module):
+                        attr = getattr(module, attr_name)
+                        if callable(attr) and hasattr(attr, '_scryptorum_experiment'):
+                            experiment_func = attr
+                            if attr_name == 'main':
+                                main_func = attr
+                                break
+                    
+                    # Call the main function or any experiment function found
+                    if main_func:
+                        main_func()
+                    elif experiment_func:
+                        experiment_func()
+                    else:
+                        print("Warning: No experiment function found in script")
+                        
+                finally:
+                    os.chdir(original_cwd)
+                
+            except Exception as e:
+                print(f"Error executing script: {e}", file=sys.stderr)
+                raise
         else:
             print("Must specify either --module or --script", file=sys.stderr)
             sys.exit(1)

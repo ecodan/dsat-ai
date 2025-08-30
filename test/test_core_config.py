@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from src.scryptorum.core.config import ConfigManager
+from dsat.scryptorum.core.config import ConfigManager
 
 
 class TestConfigManager:

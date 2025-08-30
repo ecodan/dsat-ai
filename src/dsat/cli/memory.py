@@ -176,6 +176,19 @@ class MemoryManager:
         
         return result
     
+    def compact_memory(self, messages: List[ConversationMessage], 
+                      preserve_recent: int = 5) -> List[ConversationMessage]:
+        """
+        Compact memory by removing older messages while staying under token limit.
+        
+        This is an alias for prune_memory() to maintain backward compatibility.
+        
+        :param messages: List of conversation messages
+        :param preserve_recent: Number of recent messages to always preserve
+        :return: Compacted list of messages
+        """
+        return self.prune_memory(messages, preserve_recent)
+    
     def get_session_id(self, agent_config_name: str) -> str:
         """
         Generate a session ID for storing conversation history.

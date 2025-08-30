@@ -96,7 +96,8 @@ config = AgentConfig(
     },
     custom_configs={},              # Optional: Custom configuration
     tools=[],                       # Optional: Available tools
-    stream=False                    # Optional: Enable streaming (default: False)
+    stream=False,                   # Optional: Enable streaming (default: False)
+    prepend_datetime=True           # Optional: Prepend date/time to system prompts (default: True)
 )
 ```
 
@@ -505,6 +506,110 @@ provider_auth={
     "api_version": "2023-07-01-preview"
 }
 ```
+
+## Automatic DateTime Prepending
+
+By default, DSAT agents automatically prepend the current date, time, and timezone to system prompts. This provides LLMs with current temporal context, which is particularly useful for time-sensitive queries and maintaining accurate responses about current events.
+
+### DateTime Feature Overview
+
+- **Enabled by default**: All agents prepend datetime unless explicitly disabled
+- **Format**: `"Current date and time: YYYY-MM-DD HH:MM:SS TZ\n\n{original_prompt}"`
+- **Timezone aware**: Uses local system timezone
+- **Configurable**: Can be enabled or disabled per agent
+
+### Usage Examples
+
+```python
+# Default behavior (datetime enabled)
+config = AgentConfig(
+    agent_name="time_aware_assistant",
+    model_provider="anthropic",
+    model_family="claude",
+    model_version="claude-3-5-haiku-latest",
+    prompt="assistant:v1",
+    prepend_datetime=True  # Default value, can be omitted
+)
+
+agent = Agent.create(config)
+response = agent.invoke("What's today's date?")
+# Agent receives: "Current date and time: 2025-08-30 07:46:38 PDT\n\nYou are a helpful assistant."
+```
+
+```python
+# Disable datetime prepending
+config = AgentConfig(
+    agent_name="timeless_assistant", 
+    model_provider="anthropic",
+    model_family="claude",
+    model_version="claude-3-5-haiku-latest",
+    prompt="assistant:v1",
+    prepend_datetime=False  # Explicitly disable
+)
+
+agent = Agent.create(config)
+response = agent.invoke("Hello")
+# Agent receives: "You are a helpful assistant." (no datetime prefix)
+```
+
+### When to Use DateTime Prepending
+
+**Enable (default) when:**
+- Building conversational agents that may discuss current events
+- Creating time-sensitive applications (scheduling, deadlines, etc.)
+- Developing general-purpose assistants
+- Working with agents that need temporal awareness
+
+**Disable when:**
+- Building agents for timeless content (math, literature analysis, etc.)
+- Working with prompts that already include time context
+- Optimizing for minimal token usage
+- Creating agents where time is irrelevant to the task
+
+### Configuration Examples
+
+```python
+# Via AgentConfig
+config = AgentConfig(
+    agent_name="news_agent",
+    #... other config ...
+    prepend_datetime=True  # Helpful for current events
+)
+
+# Via configuration file (JSON)
+{
+  "news_agent": {
+    "agent_name": "news_agent",
+    "model_provider": "anthropic",
+    "model_family": "claude", 
+    "model_version": "claude-3-5-haiku-latest",
+    "prompt": "news_assistant:v1",
+    "prepend_datetime": true
+  },
+  "math_tutor": {
+    "agent_name": "math_tutor",
+    "model_provider": "anthropic",
+    "model_family": "claude",
+    "model_version": "claude-3-5-haiku-latest", 
+    "prompt": "math_tutor:v1",
+    "prepend_datetime": false
+  }
+}
+```
+
+### DateTime Format Details
+
+The datetime prepending follows this exact format:
+```
+Current date and time: 2025-08-30 07:46:38 PDT
+
+{Your original system prompt content here}
+```
+
+- **Date**: YYYY-MM-DD format
+- **Time**: HH:MM:SS in 24-hour format
+- **Timezone**: Local system timezone abbreviation (PDT, EST, UTC, etc.)
+- **Separation**: Double newline separates datetime from original prompt
 
 ## Prompt Management
 
@@ -1033,6 +1138,8 @@ The test suite includes 105+ tests covering:
 10. **Use `standard` logging mode** for seamless host app integration
 11. **Use `minimal` logging level** for privacy-sensitive applications
 12. **Configure logging via environment variables** for deployment flexibility
+13. **Consider datetime prepending needs** - disable for timeless tasks, keep enabled for time-aware agents
+14. **Review datetime impact on token usage** - disable if optimizing for minimal prompts
 
 ## License
 

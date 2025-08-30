@@ -362,7 +362,7 @@ class TestMainCLI:
         """Test main CLI with no command shows help."""
         with (
             patch("sys.argv", ["scryptorum"]),
-            patch("scryptorum.cli.commands.main") as mock_main,
+            patch("dsat.scryptorum.cli.commands.main") as mock_main,
             pytest.raises(SystemExit),
         ):
 
@@ -375,7 +375,7 @@ class TestMainCLI:
 
     def test_main_create_project(self, temp_dir: Path):
         """Test main CLI with create-project command."""
-        test_args = ["scryptorum", "create-project", "test_project", str(temp_dir)]
+        test_args = ["scryptorum", "create-project", "test_project", "--parent-dir", str(temp_dir)]
 
         with patch("sys.argv", test_args):
             main()
@@ -391,7 +391,7 @@ class TestMainCLI:
             "scryptorum",
             "create-experiment",
             "main_test_experiment",
-            "-p",
+            "--project-root",
             str(test_project_root),
         ]
 
@@ -410,7 +410,7 @@ class TestMainCLI:
 
         exp = Experiment(test_project_root, "listed_experiment")
 
-        test_args = ["scryptorum", "list-experiments", "-p", str(test_project_root)]
+        test_args = ["scryptorum", "list-experiments", "--project-root", str(test_project_root)]
 
         captured_output = StringIO()
         with patch("sys.argv", test_args), patch("sys.stdout", captured_output):
@@ -439,9 +439,9 @@ if __name__ == "__main__":
             "scryptorum",
             "run",
             "main_run_test",
-            "-s",
+            "--script",
             str(script_path),
-            "-p",
+            "--project-root",
             str(test_project_root),
         ]
 

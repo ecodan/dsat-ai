@@ -26,7 +26,9 @@ class TestAgentConfig:
             "model_parameters": {"temperature": 0.7, "max_tokens": 4096},
             "provider_auth": {"api_key": "sk-test-key"},
             "custom_configs": {"custom_field": "custom_value"},
-            "tools": ["tool1", "tool2"]
+            "tools": ["tool1", "tool2"],
+            "prompts_dir": None,
+            "stream": False
         }
 
     @pytest.fixture
@@ -134,6 +136,8 @@ class TestAgentConfig:
         expected["provider_auth"] = {}
         expected["custom_configs"] = {}
         expected["tools"] = []
+        expected["prompts_dir"] = None
+        expected["stream"] = False
         
         assert result_dict == expected
 

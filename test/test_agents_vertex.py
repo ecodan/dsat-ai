@@ -8,8 +8,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from src.agents.agent import AgentConfig
-from src.agents.vertex_agent import GoogleVertexAIAgent, VERTEX_AI_AVAILABLE
+from dsat.agents.agent import AgentConfig
+from dsat.agents.vertex_agent import GoogleVertexAIAgent, VERTEX_AI_AVAILABLE
 
 
 class TestGoogleVertexAIAgent:
@@ -25,7 +25,8 @@ class TestGoogleVertexAIAgent:
             model_version="gemini-2.0-flash",
             prompt="assistant:v1",
             model_parameters={"temperature": 0.5, "max_output_tokens": 8192},
-            provider_auth={"project_id": "test-project-123", "location": "us-central1"}
+            provider_auth={"project_id": "test-project-123", "location": "us-central1"},
+            prepend_datetime=False
         )
 
     @pytest.fixture
@@ -48,9 +49,9 @@ class TestGoogleVertexAIAgent:
         """Test that VERTEX_AI_AVAILABLE flag is set correctly."""
         assert isinstance(VERTEX_AI_AVAILABLE, bool)
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_initialization_with_config(self, mock_model_class, mock_vertexai, vertex_config, logger, temp_prompts_dir):
         """Test GoogleVertexAIAgent initialization with AgentConfig."""
         mock_model = Mock()
@@ -65,9 +66,9 @@ class TestGoogleVertexAIAgent:
         mock_vertexai.init.assert_called_once_with(project="test-project-123", location="us-central1")
         mock_model_class.assert_called_once_with("gemini-2.0-flash")
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_initialization_backward_compatibility(self, mock_model_class, mock_vertexai, logger, temp_prompts_dir):
         """Test GoogleVertexAIAgent initialization with backward compatibility."""
         mock_model = Mock()
@@ -90,9 +91,9 @@ class TestGoogleVertexAIAgent:
         mock_vertexai.init.assert_called_once_with(project="legacy-project", location="us-west1")
         mock_model_class.assert_called_once_with("gemini-pro")
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_initialization_config_with_overrides(self, mock_model_class, mock_vertexai, vertex_config, logger, temp_prompts_dir):
         """Test initialization with config and parameter overrides."""
         mock_model = Mock()
@@ -112,9 +113,9 @@ class TestGoogleVertexAIAgent:
         
         mock_vertexai.init.assert_called_once_with(project="override-project", location="europe-west1")
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_initialization_default_location(self, mock_model_class, mock_vertexai, logger, temp_prompts_dir):
         """Test initialization uses default location when not specified."""
         mock_model = Mock()
@@ -141,7 +142,7 @@ class TestGoogleVertexAIAgent:
         with pytest.raises(ValueError, match="Either config must be provided, or both project_id and model must be provided"):
             GoogleVertexAIAgent(project_id="test-project", logger=logger, prompts_dir=temp_prompts_dir)
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
     def test_initialization_config_missing_project_id(self, logger, temp_prompts_dir):
         """Test initialization fails with config but no project_id."""
         config = AgentConfig(
@@ -156,7 +157,7 @@ class TestGoogleVertexAIAgent:
         with pytest.raises(ValueError, match="project_id is required in provider_auth for GoogleVertexAIAgent"):
             GoogleVertexAIAgent(config=config, logger=logger, prompts_dir=temp_prompts_dir)
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', False)
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', False)
     def test_initialization_vertex_not_available(self, vertex_config, logger, temp_prompts_dir):
         """Test initialization fails when Vertex AI package not available."""
         with pytest.raises(ImportError, match="google-cloud-aiplatform package is required for Google Vertex AI support"):
@@ -164,17 +165,17 @@ class TestGoogleVertexAIAgent:
 
     def test_initialization_default_logger(self, vertex_config, temp_prompts_dir):
         """Test initialization creates default logger when none provided."""
-        with patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True):
-            with patch('src.agents.vertex_agent.vertexai'):
-                with patch('src.agents.vertex_agent.GenerativeModel'):
+        with patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True):
+            with patch('dsat.agents.vertex_agent.vertexai'):
+                with patch('dsat.agents.vertex_agent.GenerativeModel'):
                     agent = GoogleVertexAIAgent(config=vertex_config, prompts_dir=temp_prompts_dir)
                     
                     assert isinstance(agent.logger, logging.Logger)
-                    assert agent.logger.name == 'src.agents.vertex_agent'
+                    assert agent.logger.name == 'dsat.agents.vertex_agent'
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_invoke_with_explicit_system_prompt(self, mock_model_class, mock_vertexai, vertex_config, logger, temp_prompts_dir):
         """Test invoke method with explicit system prompt."""
         # Setup mock response
@@ -201,9 +202,9 @@ class TestGoogleVertexAIAgent:
             }
         )
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_invoke_with_auto_system_prompt(self, mock_model_class, mock_vertexai, vertex_config, logger, temp_prompts_dir):
         """Test invoke method with automatic system prompt loading."""
         # Setup prompt file
@@ -235,9 +236,9 @@ class TestGoogleVertexAIAgent:
             }
         )
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_invoke_without_system_prompt(self, mock_model_class, mock_vertexai, vertex_config, logger, temp_prompts_dir):
         """Test invoke method without system prompt."""
         # Setup mock response
@@ -263,9 +264,9 @@ class TestGoogleVertexAIAgent:
             }
         )
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_invoke_with_default_parameters(self, mock_model_class, mock_vertexai, logger, temp_prompts_dir):
         """Test invoke uses default parameters when not specified in config."""
         config = AgentConfig(
@@ -294,9 +295,9 @@ class TestGoogleVertexAIAgent:
         assert call_args['generation_config']['temperature'] == 0.3  # Default
         assert call_args['generation_config']['max_output_tokens'] == 20000  # Default
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_invoke_api_error(self, mock_model_class, mock_vertexai, vertex_config, logger, temp_prompts_dir):
         """Test invoke handles API errors."""
         mock_model = Mock()
@@ -311,9 +312,9 @@ class TestGoogleVertexAIAgent:
         logger.error.assert_called_once()
         assert "Vertex AI API error" in logger.error.call_args[0][0]
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_invoke_logging(self, mock_model_class, mock_vertexai, vertex_config, logger, temp_prompts_dir):
         """Test that invoke method logs responses correctly."""
         mock_response = Mock()
@@ -337,9 +338,9 @@ class TestGoogleVertexAIAgent:
         # Should log response stats
         assert any("response: " in call and "bytes" in call and "words" in call for call in debug_calls)
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_model_property(self, mock_model_class, mock_vertexai, vertex_config, logger, temp_prompts_dir):
         """Test the model property returns correct model version."""
         mock_model = Mock()
@@ -349,9 +350,9 @@ class TestGoogleVertexAIAgent:
         
         assert agent.model == "gemini-2.0-flash"
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_invoke_with_custom_model_parameters(self, mock_model_class, mock_vertexai, logger, temp_prompts_dir):
         """Test invoke with custom model parameters."""
         config = AgentConfig(
@@ -383,9 +384,9 @@ class TestGoogleVertexAIAgent:
         assert call_args['generation_config']['temperature'] == 0.8
         assert call_args['generation_config']['max_output_tokens'] == 16384
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_config_with_location_from_auth(self, mock_model_class, mock_vertexai, logger, temp_prompts_dir):
         """Test that location is read from provider_auth correctly."""
         config = AgentConfig(
@@ -415,9 +416,9 @@ class TestGoogleVertexAIAgent:
         with pytest.raises(ValueError, match="Either config must be provided, or both project_id and model must be provided"):
             GoogleVertexAIAgent(model="gemini-pro", logger=logger, prompts_dir=temp_prompts_dir)  # Missing project_id
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_prompt_with_formatting(self, mock_model_class, mock_vertexai, vertex_config, logger, temp_prompts_dir):
         """Test that prompts with special formatting are handled correctly."""
         # Setup prompt file with placeholder formatting
@@ -446,12 +447,17 @@ class TestGoogleVertexAIAgent:
             }
         )
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_invoke_with_conversation_history(self, mock_model_class, mock_vertexai, vertex_config, logger, temp_prompts_dir):
         """Test invoke method with conversation history."""
-        from src.cli.memory import ConversationMessage
+        from dsat.cli.memory import ConversationMessage
+        
+        # Setup prompt file
+        prompt_file = temp_prompts_dir / "assistant.toml"
+        with open(prompt_file, 'w') as f:
+            f.write('v1 = """You are {role}. Follow these rules: {rules}"""')
         
         mock_response = Mock()
         mock_response.text = "I can see you asked about Machine Learning earlier."
@@ -485,11 +491,16 @@ class TestGoogleVertexAIAgent:
         )
         assert full_context == expected_context
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_invoke_without_history_backward_compatibility(self, mock_model_class, mock_vertexai, vertex_config, logger, temp_prompts_dir):
         """Test invoke method still works without history parameter (backward compatibility)."""
+        # Setup prompt file
+        prompt_file = temp_prompts_dir / "assistant.toml"
+        with open(prompt_file, 'w') as f:
+            f.write('v1 = """You are {role}. Follow these rules: {rules}"""')
+        
         mock_response = Mock()
         mock_response.text = "Hello! How can I assist you today?"
         
@@ -508,14 +519,19 @@ class TestGoogleVertexAIAgent:
         call_args = mock_model.generate_content.call_args[0]
         full_context = call_args[0]
         
-        expected_context = "You are {role}. Follow these rules: {rules}\n\nHuman: Hello"
+        expected_context = "You are {role}. Follow these rules: {rules}\n\nHello"
         assert full_context == expected_context
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_invoke_with_empty_history(self, mock_model_class, mock_vertexai, vertex_config, logger, temp_prompts_dir):
         """Test invoke method with empty history list."""
+        # Setup prompt file
+        prompt_file = temp_prompts_dir / "assistant.toml"
+        with open(prompt_file, 'w') as f:
+            f.write('v1 = """You are {role}. Follow these rules: {rules}"""')
+        
         mock_response = Mock()
         mock_response.text = "Hello there!"
         
@@ -537,12 +553,12 @@ class TestGoogleVertexAIAgent:
         expected_context = "You are {role}. Follow these rules: {rules}\n\nHuman: Hello"
         assert full_context == expected_context
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
-    @patch('src.agents.vertex_agent.vertexai')
-    @patch('src.agents.vertex_agent.GenerativeModel')
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.vertexai')
+    @patch('dsat.agents.vertex_agent.GenerativeModel')
     def test_context_building_method(self, mock_model_class, mock_vertexai, vertex_config, logger, temp_prompts_dir):
         """Test the _build_conversation_context method directly."""
-        from src.cli.memory import ConversationMessage
+        from dsat.cli.memory import ConversationMessage
         
         agent = GoogleVertexAIAgent(config=vertex_config, logger=logger, prompts_dir=temp_prompts_dir)
         
@@ -563,8 +579,8 @@ class TestGoogleVertexAIAgent:
         
         assert context == expected
         
-        # Test without history
+        # Test without history (backward compatibility mode - no Human: prefix)
         context_no_history = agent._build_conversation_context("You are helpful.", None, "Hello")
-        expected_no_history = "You are helpful.\n\nHuman: Hello"
+        expected_no_history = "You are helpful.\n\nHello"
         
         assert context_no_history == expected_no_history

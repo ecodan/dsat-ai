@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from src.agents.agent import Agent, AgentConfig
+from dsat.agents.agent import Agent, AgentConfig
 from test.echo_agent import EchoAgent, create_echo_agent_config
 
 
@@ -26,6 +26,11 @@ class ConcreteAgent(Agent):
             
         return f"Response to: {user_prompt} (System: {system_prompt}){history_info}"
     
+    async def invoke_async(self, user_prompt: str, system_prompt: str = None, history=None):
+        """Mock async implementation for testing."""
+        response = self.invoke(user_prompt, system_prompt, history)
+        yield response
+    
     @property
     def model(self) -> str:
         return self.config.model_version
@@ -33,30 +38,6 @@ class ConcreteAgent(Agent):
 
 class TestAgentBase:
     """Test cases for Agent base class."""
-
-    @pytest.fixture
-    def sample_config(self):
-        """Return a sample AgentConfig for testing."""
-        return AgentConfig(
-            agent_name="test_agent",
-            model_provider="test_provider",
-            model_family="test_family",
-            model_version="test-model-v1",
-            prompt="test_prompt:v1",
-            model_parameters={"temperature": 0.7},
-            provider_auth={"api_key": "test-key"}
-        )
-
-    @pytest.fixture
-    def temp_prompts_dir(self):
-        """Create temporary directory for prompts."""
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            yield Path(tmp_dir)
-
-    @pytest.fixture
-    def logger(self):
-        """Return a mock logger."""
-        return Mock(spec=logging.Logger)
 
     @pytest.fixture
     def agent(self, sample_config, logger, temp_prompts_dir):
@@ -112,7 +93,8 @@ class TestAgentBase:
             model_provider="test_provider",
             model_family="test_family",
             model_version="test-model-v1",
-            prompt="test_prompt:latest"  # Will get latest
+            prompt="test_prompt:latest",  # Will get latest
+            prepend_datetime=False
         )
         
         # Create prompt file with multiple versions
@@ -133,7 +115,8 @@ class TestAgentBase:
             model_provider="test_provider",
             model_family="test_family", 
             model_version="test-model-v1",
-            prompt="test_prompt:latest"  # Explicitly set to latest
+            prompt="test_prompt:latest",  # Explicitly set to latest
+            prepend_datetime=False
         )
         
         agent = ConcreteAgent(config, logger, temp_prompts_dir)
@@ -153,7 +136,8 @@ class TestAgentBase:
             model_provider="test_provider",
             model_family="test_family",
             model_version="test-model-v1",
-            prompt="test_prompt:latest"
+            prompt="test_prompt:latest",
+            prepend_datetime=False
         )
         
         agent = ConcreteAgent(config, logger, temp_prompts_dir)
@@ -225,37 +209,13 @@ class TestAgentBase:
 class TestAgentFactory:
     """Test cases for Agent factory methods."""
 
-    @pytest.fixture
-    def anthropic_config(self):
-        """Return Anthropic agent config."""
-        return AgentConfig(
-            agent_name="claude_agent",
-            model_provider="anthropic",
-            model_family="claude",
-            model_version="claude-3-5-haiku-latest",
-            prompt="assistant:v1",
-            provider_auth={"api_key": "sk-test-key"}
-        )
-
-    @pytest.fixture
-    def google_config(self):
-        """Return Google Vertex AI agent config."""
-        return AgentConfig(
-            agent_name="vertex_agent",
-            model_provider="google",
-            model_family="gemini",
-            model_version="gemini-2.0-flash",
-            prompt="assistant:v1",
-            provider_auth={"project_id": "test-project", "location": "us-central1"}
-        )
-
-    @patch('src.agents.anthropic_agent.ClaudeLLMAgent')
+    @patch('dsat.agents.anthropic_agent.ClaudeLLMAgent')
     def test_create_anthropic_agent(self, mock_claude_class, anthropic_config):
         """Test creating Anthropic agent through factory."""
         mock_claude_instance = Mock()
         mock_claude_class.return_value = mock_claude_instance
         
-        with patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True):
+        with patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True):
             agent = Agent.create(anthropic_config)
             
             mock_claude_class.assert_called_once()
@@ -264,13 +224,13 @@ class TestAgentFactory:
             assert call_args[1]['api_key'] == "sk-test-key"
             assert agent == mock_claude_instance
 
-    @patch('src.agents.vertex_agent.GoogleVertexAIAgent')
+    @patch('dsat.agents.vertex_agent.GoogleVertexAIAgent')
     def test_create_google_agent(self, mock_vertex_class, google_config):
         """Test creating Google Vertex AI agent through factory."""
         mock_vertex_instance = Mock()
         mock_vertex_class.return_value = mock_vertex_instance
         
-        with patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True):
+        with patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True):
             agent = Agent.create(google_config)
             
             mock_vertex_class.assert_called_once()
@@ -293,7 +253,7 @@ class TestAgentFactory:
         with pytest.raises(ValueError, match="Unsupported provider: unsupported_provider"):
             Agent.create(config)
 
-    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
+    @patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
     def test_create_anthropic_missing_api_key(self):
         """Test creating Anthropic agent without API key."""
         config = AgentConfig(
@@ -308,7 +268,7 @@ class TestAgentFactory:
         with pytest.raises(ValueError, match="api_key is required in provider_auth for Anthropic provider"):
             Agent.create(config)
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', True)
     def test_create_google_missing_project_id(self):
         """Test creating Google agent without project ID."""
         config = AgentConfig(
@@ -323,13 +283,13 @@ class TestAgentFactory:
         with pytest.raises(ValueError, match="project_id is required in provider_auth for Google provider"):
             Agent.create(config)
 
-    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', False)
+    @patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', False)
     def test_create_anthropic_not_available(self, anthropic_config):
         """Test creating Anthropic agent when package not available."""
         with pytest.raises(ImportError, match="anthropic package is required for Anthropic provider"):
             Agent.create(anthropic_config)
 
-    @patch('src.agents.vertex_agent.VERTEX_AI_AVAILABLE', False)  
+    @patch('dsat.agents.vertex_agent.VERTEX_AI_AVAILABLE', False)  
     def test_create_google_not_available(self, google_config):
         """Test creating Google agent when package not available."""
         with pytest.raises(ImportError, match="google-cloud-aiplatform package is required for Google provider"):
@@ -337,8 +297,8 @@ class TestAgentFactory:
 
     def test_create_with_default_logger(self, anthropic_config):
         """Test creating agent with default logger."""
-        with patch('src.agents.anthropic_agent.ClaudeLLMAgent') as mock_claude:
-            with patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True):
+        with patch('dsat.agents.anthropic_agent.ClaudeLLMAgent') as mock_claude:
+            with patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True):
                 Agent.create(anthropic_config)
                 
                 # Should have created a default logger
@@ -350,8 +310,8 @@ class TestAgentFactory:
         """Test creating agent with custom logger."""
         custom_logger = logging.getLogger("test_logger")
         
-        with patch('src.agents.anthropic_agent.ClaudeLLMAgent') as mock_claude:
-            with patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True):
+        with patch('dsat.agents.anthropic_agent.ClaudeLLMAgent') as mock_claude:
+            with patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True):
                 Agent.create(anthropic_config, logger=custom_logger)
                 
                 call_args = mock_claude.call_args
@@ -361,8 +321,8 @@ class TestAgentFactory:
         """Test creating agent with custom prompts directory."""
         custom_prompts_dir = "/custom/prompts"
         
-        with patch('src.agents.anthropic_agent.ClaudeLLMAgent') as mock_claude:
-            with patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True):
+        with patch('dsat.agents.anthropic_agent.ClaudeLLMAgent') as mock_claude:
+            with patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True):
                 Agent.create(anthropic_config, prompts_dir=custom_prompts_dir)
                 
                 call_args = mock_claude.call_args
@@ -384,19 +344,25 @@ class TestAgentFactory:
         response = agent.invoke("Hello world")
         assert "Echo: Hello world" in response
 
-    def test_invoke_with_conversation_history(self, temp_prompts_dir):
+    def test_invoke_with_conversation_history(self, temp_prompts_dir, logger):
         """Test base Agent class invoke method with conversation history."""
-        from src.cli.memory import ConversationMessage
+        from dsat.cli.memory import ConversationMessage
         
         config = AgentConfig(
             agent_name="test_agent",
             model_provider="test",
             model_family="test",
             model_version="test-model",
-            prompt="test:v1"
+            prompt="test:v1",
+            prepend_datetime=False
         )
         
-        agent = ConcreteAgent(config, prompts_dir=temp_prompts_dir)
+        # Create the test prompt file
+        prompt_file = temp_prompts_dir / "test.toml"
+        with open(prompt_file, 'w') as f:
+            f.write('v1 = """You are a {assistant_type}"""')
+        
+        agent = ConcreteAgent(config, logger, prompts_dir=temp_prompts_dir)
         
         # Create conversation history
         history = [
@@ -411,17 +377,23 @@ class TestAgentFactory:
         assert "(History: 2 messages)" in result
         assert "System: You are a {assistant_type}" in result  # from test:v1 prompt
 
-    def test_invoke_without_history_backward_compatibility(self, temp_prompts_dir):
+    def test_invoke_without_history_backward_compatibility(self, temp_prompts_dir, logger):
         """Test base Agent class invoke method without history (backward compatibility)."""
         config = AgentConfig(
             agent_name="test_agent", 
             model_provider="test",
             model_family="test",
             model_version="test-model",
-            prompt="test:v1"
+            prompt="test:v1",
+            prepend_datetime=False
         )
         
-        agent = ConcreteAgent(config, prompts_dir=temp_prompts_dir)
+        # Create the test prompt file
+        prompt_file = temp_prompts_dir / "test.toml"
+        with open(prompt_file, 'w') as f:
+            f.write('v1 = """You are a {assistant_type}"""')
+        
+        agent = ConcreteAgent(config, logger, prompts_dir=temp_prompts_dir)
         
         result = agent.invoke("Hello")
         
@@ -430,17 +402,23 @@ class TestAgentFactory:
         assert "(History:" not in result  # No history info
         assert "System: You are a {assistant_type}" in result
 
-    def test_invoke_with_empty_history(self, temp_prompts_dir):
+    def test_invoke_with_empty_history(self, temp_prompts_dir, logger):
         """Test base Agent class invoke method with empty history."""
         config = AgentConfig(
             agent_name="test_agent",
             model_provider="test", 
             model_family="test",
             model_version="test-model",
-            prompt="test:v1"
+            prompt="test:v1",
+            prepend_datetime=False
         )
         
-        agent = ConcreteAgent(config, prompts_dir=temp_prompts_dir)
+        # Create the test prompt file
+        prompt_file = temp_prompts_dir / "test.toml"
+        with open(prompt_file, 'w') as f:
+            f.write('v1 = """You are a {assistant_type}"""')
+        
+        agent = ConcreteAgent(config, logger, prompts_dir=temp_prompts_dir)
         
         result = agent.invoke("Hello", history=[])
         
@@ -468,7 +446,7 @@ class TestAgentFactory:
 
     def test_echo_agent_with_history(self):
         """Test EchoAgent with conversation history."""
-        from src.cli.memory import ConversationMessage
+        from dsat.cli.memory import ConversationMessage
         
         config = create_echo_agent_config("echo_history_test")
         agent = Agent.create(config)
@@ -483,3 +461,103 @@ class TestAgentFactory:
         
         # EchoAgent should handle history parameter gracefully
         assert "Echo: Current question" in result
+
+    def test_prepend_datetime_enabled_by_default(self, logger, temp_prompts_dir):
+        """Test that prepend_datetime is enabled by default."""
+        from datetime import datetime
+        import re
+        
+        # Create prompt file
+        prompt_file = temp_prompts_dir / "test_prompt.toml"
+        with open(prompt_file, 'w') as f:
+            f.write('v1 = """You are a helpful assistant."""')
+        
+        # Create config with prepend_datetime enabled  
+        config = AgentConfig(
+            agent_name="test_agent",
+            model_provider="test_provider",
+            model_family="test_family",
+            model_version="test-model-v1",
+            prompt="test_prompt:v1",
+            prepend_datetime=True  # Explicitly enable for this test
+        )
+        
+        # Create agent with datetime prepending enabled
+        agent = ConcreteAgent(config, logger, temp_prompts_dir)
+        
+        # Get system prompt
+        system_prompt = agent.get_system_prompt()
+        
+        # Should contain datetime prefix
+        assert system_prompt is not None
+        assert system_prompt.startswith("Current date and time:")
+        
+        # Verify datetime format with timezone
+        datetime_pattern = r"Current date and time: \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \w+\n\nYou are a helpful assistant."
+        assert re.match(datetime_pattern, system_prompt), f"Unexpected format: {system_prompt}"
+
+    def test_prepend_datetime_disabled(self, sample_config, logger, temp_prompts_dir):
+        """Test that datetime prepending can be disabled."""
+        # Create prompt file
+        prompt_file = temp_prompts_dir / "test_prompt.toml"
+        with open(prompt_file, 'w') as f:
+            f.write('v1 = """You are a helpful assistant."""')
+        
+        # Disable datetime prepending
+        sample_config.prepend_datetime = False
+        
+        agent = ConcreteAgent(sample_config, logger, temp_prompts_dir)
+        
+        # Get system prompt
+        system_prompt = agent.get_system_prompt()
+        
+        # Should be original prompt without datetime
+        assert system_prompt == "You are a helpful assistant."
+        assert not system_prompt.startswith("Current date and time:")
+
+    def test_prepend_datetime_with_none_prompt(self, sample_config, logger, temp_prompts_dir):
+        """Test datetime prepending behavior when prompt is not found."""
+        # Use a non-existent prompt
+        sample_config.prompt = "nonexistent:v1"
+        
+        agent = ConcreteAgent(sample_config, logger, temp_prompts_dir)
+        
+        # Get system prompt
+        system_prompt = agent.get_system_prompt()
+        
+        # Should be None when prompt not found, regardless of prepend_datetime setting
+        assert system_prompt is None
+
+    def test_prepend_datetime_caching(self, logger, temp_prompts_dir):
+        """Test that datetime is only added once due to caching."""
+        from datetime import datetime
+        import time
+        
+        # Create prompt file
+        prompt_file = temp_prompts_dir / "test_prompt.toml"
+        with open(prompt_file, 'w') as f:
+            f.write('v1 = """You are a helpful assistant."""')
+        
+        # Create config with prepend_datetime enabled
+        config = AgentConfig(
+            agent_name="test_agent",
+            model_provider="test_provider",
+            model_family="test_family",
+            model_version="test-model-v1",
+            prompt="test_prompt:v1",
+            prepend_datetime=True  # Explicitly enable for this test
+        )
+        
+        agent = ConcreteAgent(config, logger, temp_prompts_dir)
+        
+        # Get system prompt twice
+        first_call = agent.get_system_prompt()
+        
+        # Wait a moment to ensure time would be different if regenerated
+        time.sleep(0.1)
+        
+        second_call = agent.get_system_prompt()
+        
+        # Should be identical due to caching
+        assert first_call == second_call
+        assert first_call.startswith("Current date and time:")

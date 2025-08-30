@@ -3,15 +3,18 @@ Pytest configuration and shared fixtures for scryptorum tests.
 """
 
 import json
+import logging
 import tempfile
 import shutil
 from pathlib import Path
 from typing import Generator
+from unittest.mock import Mock
 
 import pytest
 
 from dsat.scryptorum.core.experiment import Experiment, create_project
 from dsat.scryptorum.core.runs import Run, RunType
+from dsat.agents.agent import AgentConfig
 
 
 @pytest.fixture
@@ -44,6 +47,60 @@ def trial_run(test_experiment: Experiment) -> Run:
 def milestone_run(test_experiment: Experiment) -> Run:
     """Create a milestone run for testing."""
     return test_experiment.create_run(RunType.MILESTONE)
+
+
+@pytest.fixture
+def temp_prompts_dir():
+    """Create temporary directory for prompts."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        yield Path(tmp_dir)
+
+
+@pytest.fixture
+def sample_config():
+    """Return a sample AgentConfig for testing."""
+    return AgentConfig(
+        agent_name="test_agent",
+        model_provider="test_provider",
+        model_family="test_family",
+        model_version="test-model-v1",
+        prompt="test_prompt:v1",
+        model_parameters={"temperature": 0.7},
+        provider_auth={"api_key": "test-key"},
+        prepend_datetime=False
+    )
+
+
+@pytest.fixture
+def logger():
+    """Return a mock logger."""
+    return Mock(spec=logging.Logger)
+
+
+@pytest.fixture
+def anthropic_config():
+    """Return Anthropic agent config."""
+    return AgentConfig(
+        agent_name="claude_agent",
+        model_provider="anthropic",
+        model_family="claude",
+        model_version="claude-3-5-haiku-latest",
+        prompt="assistant:v1",
+        provider_auth={"api_key": "sk-test-key"}
+    )
+
+
+@pytest.fixture
+def google_config():
+    """Return Google Vertex AI agent config."""
+    return AgentConfig(
+        agent_name="vertex_agent",
+        model_provider="google",
+        model_family="gemini",
+        model_version="gemini-2.0-flash",
+        prompt="assistant:v1",
+        provider_auth={"project_id": "test-project", "location": "us-central1"}
+    )
 
 
 @pytest.fixture

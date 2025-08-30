@@ -7,7 +7,6 @@ plugins, and custom memory managers.
 
 import logging
 from typing import Dict, List, Optional, Type, Any
-from pathlib import Path
 
 from .memory_interfaces import BaseMemoryStrategy, BaseMemoryManager, MemoryPlugin
 
@@ -46,7 +45,7 @@ class MemoryStrategyRegistry:
         :param strategy_class: Strategy class
         """
         if not issubclass(strategy_class, BaseMemoryStrategy):
-            raise ValueError(f"Strategy class must inherit from BaseMemoryStrategy")
+            raise ValueError("Strategy class must inherit from BaseMemoryStrategy")
         
         self._strategies[name] = strategy_class
         self.logger.debug(f"Registered memory strategy: {name}")
@@ -59,7 +58,7 @@ class MemoryStrategyRegistry:
         :param manager_class: Manager class
         """
         if not issubclass(manager_class, BaseMemoryManager):
-            raise ValueError(f"Manager class must inherit from BaseMemoryManager")
+            raise ValueError("Manager class must inherit from BaseMemoryManager")
         
         self._memory_managers[name] = manager_class
         self.logger.debug(f"Registered memory manager: {name}")

@@ -23,7 +23,7 @@ class EchoAgent(Agent):
         super().__init__(config, logger, prompts_dir)
         self.call_count = 0
 
-    def invoke(self, user_prompt: str, system_prompt: str = None) -> str:
+    def invoke(self, user_prompt: str, system_prompt: str = None, history=None) -> str:
         """Echo back the user prompt with system context."""
         self.call_count += 1
         
@@ -35,6 +35,8 @@ class EchoAgent(Agent):
         self.logger.debug(f"EchoAgent call #{self.call_count}")
         self.logger.debug(f"System prompt: {system_prompt}")
         self.logger.debug(f"User prompt: {user_prompt}")
+        if history:
+            self.logger.debug(f"History: {len(history)} messages")
         
         # Create formatted response
         if system_prompt:
@@ -64,12 +66,13 @@ class EchoAgent(Agent):
         
         return response
 
-    async def invoke_async(self, user_prompt: str, system_prompt: str = None) -> AsyncGenerator[str, None]:
+    async def invoke_async(self, user_prompt: str, system_prompt: str = None, history=None) -> AsyncGenerator[str, None]:
         """
         Echo back the user prompt with system context, yielding characters one by one.
         
         :param user_prompt: Specific user prompt
         :param system_prompt: Optional system prompt override. If None, loads from config via prompt manager.
+        :param history: Optional conversation history for context
         :return: AsyncGenerator yielding response text chunks
         """
         self.call_count += 1
@@ -82,6 +85,8 @@ class EchoAgent(Agent):
         self.logger.debug(f"EchoAgent async call #{self.call_count}")
         self.logger.debug(f"System prompt: {system_prompt}")
         self.logger.debug(f"User prompt: {user_prompt}")
+        if history:
+            self.logger.debug(f"History: {len(history)} messages")
         
         # Create formatted response
         if system_prompt:

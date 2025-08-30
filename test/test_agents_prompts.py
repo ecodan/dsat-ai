@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch, mock_open
 
-from src.agents.prompts import PromptManager
+from dsat.agents.prompts import PromptManager
 
 
 class TestPromptManager:

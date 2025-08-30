@@ -556,7 +556,7 @@ class TestAgentIntegration:
     )
     def test_agent_experiment_vs_base_experiment(self, test_project_root: Path):
         """Test that agent experiments provide enhanced functionality."""
-        from src.agents.agent_experiment import AgentExperiment
+        from dsat.agents.agent_experiment import AgentExperiment
         
         # Create both types of experiments
         base_experiment = Experiment(test_project_root / "base", "base_test")
@@ -603,7 +603,7 @@ class TestAgentIntegration:
     )
     def test_agent_experiment_decorators_integration(self, test_project_root: Path):
         """Test agent experiment with scryptorum decorators."""
-        from src.agents.agent_experiment import AgentExperiment
+        from dsat.agents.agent_experiment import AgentExperiment
         from unittest.mock import patch, MagicMock
 
         # Mock agent creation to avoid dependencies
@@ -707,7 +707,7 @@ class TestAgentIntegration:
     )
     def test_agent_experiment_milestone_run_snapshot(self, test_project_root: Path):
         """Test that agent experiments snapshot configs in milestone runs."""
-        from src.agents.agent_experiment import AgentExperiment
+        from dsat.agents.agent_experiment import AgentExperiment
 
         agent_experiment = AgentExperiment(test_project_root, "snapshot_test")
         
@@ -760,7 +760,7 @@ class TestAgentIntegration:
 
         # Try to import agent experiment - should work even if not available
         try:
-            from src.agents.agent_experiment import AgentExperiment
+            from dsat.agents.agent_experiment import AgentExperiment
             agent_available = True
         except ImportError:
             agent_available = False

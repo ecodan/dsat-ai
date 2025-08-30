@@ -6,8 +6,8 @@ import json
 import pytest
 from pathlib import Path
 
-from src.agents.agent_experiment import AgentExperiment, AgentRun
-from src.agents.agent import AgentConfig
+from dsat.agents.agent_experiment import AgentExperiment, AgentRun
+from dsat.agents.agent import AgentConfig
 from dsat.scryptorum.core.runs import RunType
 from test.conftest import verify_json_file, verify_jsonl_file
 from test.echo_agent import EchoAgent, create_echo_agent_config

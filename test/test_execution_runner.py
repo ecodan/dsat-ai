@@ -268,7 +268,7 @@ class TestRunnableExecution:
         event_types = [e["event_type"] for e in log_entries]
 
         assert "prepare_started" in event_types
-        assert "execute_error" in event_types  # Error should be logged
+        assert "execution_error" in event_types  # Error should be logged
         assert "score_called" not in event_types  # Should not reach score
         assert "cleanup_called" in event_types  # Cleanup should still run
 
@@ -307,7 +307,7 @@ from dsat.scryptorum.execution.runner import BaseRunnable
 
 class FileRunnable(BaseRunnable):
     def execute(self):
-        self.run._log_event("file_runnable_executed", {})
+        self.run.log_event("file_runnable_executed", {})
         self.run.log_metric("file_metric", 0.9, "test")
 """
         module_file = test_project_root / "file_runnable.py"
@@ -363,7 +363,7 @@ from dsat.scryptorum.execution.runner import BaseRunnable
 
 class MyRunnable(BaseRunnable):
     def execute(self):
-        self.run._log_event("concrete_runnable_executed", {})
+        self.run.log_event("concrete_runnable_executed", {})
 """
         module_file = test_project_root / "concrete_runnable.py"
         module_file.write_text(module_content)
@@ -398,7 +398,7 @@ from dsat.scryptorum.execution.runner import BaseRunnable
 
 class SrcRunnable(BaseRunnable):
     def execute(self):
-        self.run._log_event("src_runnable_executed", {})
+        self.run.log_event("src_runnable_executed", {})
 """
         (package_dir / "runnable.py").write_text(module_content)
         

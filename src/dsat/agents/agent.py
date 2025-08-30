@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Optional, Dict, Any, List, Union, TYPE_CHECKING, AsyncGenerator
 
 if TYPE_CHECKING:
@@ -103,6 +104,9 @@ class AgentConfig:
             },
             "hooks": ["CustomHook"]          # Custom hook class names
         }
+    prepend_datetime : bool, optional
+        Whether to prepend current date and time to system prompts (default: True)
+        When enabled, adds "Current date and time: YYYY-MM-DD HH:MM:SS TZ\n\n" to the start of system prompts
 
     Model Separation with _models section:
     -------------------------------------
@@ -176,6 +180,7 @@ class AgentConfig:
     max_memory_tokens: int = 8000  # Maximum tokens to keep in conversation memory
     response_truncate_length: int = 1000  # Truncate responses longer than this
     memory_config: Optional[Dict[str, Any]] = field(default_factory=dict)  # Memory strategy configuration
+    prepend_datetime: bool = True  # Prepend current date/time to system prompts
 
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> "AgentConfig":
@@ -200,8 +205,13 @@ class AgentConfig:
             if key not in config_dict:
                 raise ValueError(f"Missing required key: {key} in config_dict")
 
-        # Create a copy to avoid modifying the original
-        config_data = config_dict.copy()
+        # Convert to regular dict if it's a tomlkit object to avoid serialization issues
+        if hasattr(config_dict, 'unwrap'):
+            # tomlkit object - convert to regular dict
+            config_data = dict(config_dict.unwrap())
+        else:
+            # Create a copy to avoid modifying the original
+            config_data = dict(config_dict)
 
         # Ensure optional fields have proper defaults
         config_data.setdefault("model_parameters", {})
@@ -414,7 +424,9 @@ class AgentConfig:
 
                 doc = tomlkit.document()
                 for name, config_dict in data.items():
-                    doc[name] = config_dict
+                    # Filter out None values for TOML compatibility
+                    filtered_dict = {k: v for k, v in config_dict.items() if v is not None}
+                    doc[name] = filtered_dict
 
                 with open(file_path, "w") as f:
                     f.write(tomlkit.dumps(doc))
@@ -467,6 +479,7 @@ class Agent(metaclass=ABCMeta):
         """
         Load system prompt from prompt manager based on config.
         Caches the prompt after first load.
+        Optionally prepends current date/time with timezone if prepend_datetime is True.
 
         :return: System prompt text or None if not found
         """
@@ -484,14 +497,22 @@ class Agent(metaclass=ABCMeta):
         if prompt_version == "latest" or prompt_version is None:
             prompt_version = None
 
-        self._system_prompt = self.prompt_manager.get_prompt(
+        base_prompt = self.prompt_manager.get_prompt(
             prompt_name, prompt_version
         )
 
-        if self._system_prompt is None:
+        if base_prompt is None:
             self.logger.warning(
                 f"System prompt not found: {prompt_name}:{prompt_version or 'latest'}"
             )
+            self._system_prompt = None
+        else:
+            # Prepend datetime with timezone if enabled
+            if self.config.prepend_datetime:
+                current_datetime = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+                self._system_prompt = f"Current date and time: {current_datetime}\n\n{base_prompt}"
+            else:
+                self._system_prompt = base_prompt
 
         return self._system_prompt
 

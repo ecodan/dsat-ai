@@ -5,8 +5,7 @@ This module provides the default memory strategies that ship with dsat,
 including the original pruning strategy and new compacting strategies.
 """
 
-from typing import List, Dict, Any, Optional
-import re
+from typing import List, Dict, Any
 from datetime import datetime
 
 from .memory_interfaces import BaseMemoryStrategy, MemoryContext

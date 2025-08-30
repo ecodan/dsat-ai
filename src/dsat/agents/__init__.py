@@ -21,7 +21,7 @@ __all__ = [
 
 # Optional scryptorum integration - only available if scryptorum is installed
 try:
-    from .experiment import AgentExperiment, AgentRun
+    from .agent_experiment import AgentExperiment, AgentRun
 
     __all__.extend(["AgentExperiment", "AgentRun"])
 except ImportError:

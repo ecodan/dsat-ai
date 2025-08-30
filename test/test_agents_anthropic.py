@@ -8,8 +8,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from src.agents.agent import AgentConfig
-from src.agents.anthropic_agent import ClaudeLLMAgent, ANTHROPIC_AVAILABLE
+from dsat.agents.agent import AgentConfig
+from dsat.agents.anthropic_agent import ClaudeLLMAgent, ANTHROPIC_AVAILABLE
 
 
 class TestClaudeLLMAgent:
@@ -25,7 +25,8 @@ class TestClaudeLLMAgent:
             model_version="claude-3-5-haiku-latest",
             prompt="assistant:v1",
             model_parameters={"temperature": 0.7, "max_tokens": 4096},
-            provider_auth={"api_key": "sk-test-key-123"}
+            provider_auth={"api_key": "sk-test-key-123"},
+            prepend_datetime=False
         )
 
     @pytest.fixture
@@ -52,8 +53,8 @@ class TestClaudeLLMAgent:
         # This test checks the import logic
         assert isinstance(ANTHROPIC_AVAILABLE, bool)
 
-    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
-    @patch('src.agents.anthropic_agent.Anthropic')
+    @patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
+    @patch('dsat.agents.anthropic_agent.Anthropic')
     def test_initialization_with_config(self, mock_anthropic, claude_config, logger, temp_prompts_dir):
         """Test ClaudeLLMAgent initialization with AgentConfig."""
         mock_client = Mock()
@@ -66,8 +67,8 @@ class TestClaudeLLMAgent:
         assert agent.client == mock_client
         mock_anthropic.assert_called_once_with(api_key="sk-test-key-123")
 
-    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
-    @patch('src.agents.anthropic_agent.Anthropic')
+    @patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
+    @patch('dsat.agents.anthropic_agent.Anthropic')
     def test_initialization_backward_compatibility(self, mock_anthropic, logger, temp_prompts_dir):
         """Test ClaudeLLMAgent initialization with backward compatibility."""
         mock_client = Mock()
@@ -86,8 +87,8 @@ class TestClaudeLLMAgent:
         assert agent.config.provider_auth["api_key"] == "sk-legacy-key"
         mock_anthropic.assert_called_once_with(api_key="sk-legacy-key")
 
-    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
-    @patch('src.agents.anthropic_agent.Anthropic')
+    @patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
+    @patch('dsat.agents.anthropic_agent.Anthropic')
     def test_initialization_config_with_overrides(self, mock_anthropic, claude_config, logger, temp_prompts_dir):
         """Test initialization with config and parameter overrides."""
         mock_client = Mock()
@@ -109,7 +110,7 @@ class TestClaudeLLMAgent:
         with pytest.raises(ValueError, match="Either config must be provided, or both api_key and model must be provided"):
             ClaudeLLMAgent(logger=logger, prompts_dir=temp_prompts_dir)
 
-    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
+    @patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
     def test_initialization_config_missing_api_key(self, logger, temp_prompts_dir):
         """Test initialization fails with config but no API key."""
         config = AgentConfig(
@@ -124,7 +125,7 @@ class TestClaudeLLMAgent:
         with pytest.raises(ValueError, match="api_key is required in provider_auth for ClaudeLLMAgent"):
             ClaudeLLMAgent(config=config, logger=logger, prompts_dir=temp_prompts_dir)
 
-    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', False)
+    @patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', False)
     def test_initialization_anthropic_not_available(self, claude_config, logger, temp_prompts_dir):
         """Test initialization fails when Anthropic package not available."""
         with pytest.raises(ImportError, match="anthropic package is required for ClaudeLLMAgent"):
@@ -132,15 +133,15 @@ class TestClaudeLLMAgent:
 
     def test_initialization_default_logger(self, claude_config, temp_prompts_dir):
         """Test initialization creates default logger when none provided."""
-        with patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True):
-            with patch('src.agents.anthropic_agent.Anthropic'):
+        with patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True):
+            with patch('dsat.agents.anthropic_agent.Anthropic'):
                 agent = ClaudeLLMAgent(config=claude_config, prompts_dir=temp_prompts_dir)
                 
                 assert isinstance(agent.logger, logging.Logger)
-                assert agent.logger.name == 'src.agents.anthropic_agent'
+                assert agent.logger.name == 'dsat.agents.anthropic_agent'
 
-    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
-    @patch('src.agents.anthropic_agent.Anthropic')
+    @patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
+    @patch('dsat.agents.anthropic_agent.Anthropic')
     def test_invoke_with_explicit_system_prompt(self, mock_anthropic, claude_config, logger, temp_prompts_dir):
         """Test invoke method with explicit system prompt."""
         # Setup mock response
@@ -166,8 +167,8 @@ class TestClaudeLLMAgent:
             messages=[{"role": "user", "content": "Hello"}]
         )
 
-    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
-    @patch('src.agents.anthropic_agent.Anthropic')
+    @patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
+    @patch('dsat.agents.anthropic_agent.Anthropic')
     def test_invoke_with_auto_system_prompt(self, mock_anthropic, claude_config, logger, temp_prompts_dir):
         """Test invoke method with automatic system prompt loading."""
         # Setup prompt file
@@ -198,8 +199,8 @@ class TestClaudeLLMAgent:
             messages=[{"role": "user", "content": "What can you do?"}]
         )
 
-    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
-    @patch('src.agents.anthropic_agent.Anthropic')
+    @patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
+    @patch('dsat.agents.anthropic_agent.Anthropic')
     def test_invoke_with_default_parameters(self, mock_anthropic, logger, temp_prompts_dir):
         """Test invoke uses default parameters when not specified in config."""
         config = AgentConfig(
@@ -230,8 +231,8 @@ class TestClaudeLLMAgent:
         assert call_args['max_tokens'] == 4096  # Default
         assert call_args['temperature'] == 0.0  # Default
 
-    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
-    @patch('src.agents.anthropic_agent.Anthropic')
+    @patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
+    @patch('dsat.agents.anthropic_agent.Anthropic')
     def test_invoke_multiple_content_blocks(self, mock_anthropic, claude_config, logger, temp_prompts_dir):
         """Test invoke handles multiple content blocks."""
         mock_response = Mock()
@@ -268,8 +269,8 @@ class TestClaudeLLMAgent:
         # Skipping due to exception handling complexity with None exception classes
         pass
 
-    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
-    @patch('src.agents.anthropic_agent.Anthropic')
+    @patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
+    @patch('dsat.agents.anthropic_agent.Anthropic')
     def test_invoke_logging(self, mock_anthropic, claude_config, logger, temp_prompts_dir):
         """Test that invoke method logs responses correctly."""
         mock_content = Mock()
@@ -295,8 +296,8 @@ class TestClaudeLLMAgent:
         # Should log response stats
         assert any("response: " in call and "bytes" in call and "words" in call for call in debug_calls)
 
-    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
-    @patch('src.agents.anthropic_agent.Anthropic')
+    @patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
+    @patch('dsat.agents.anthropic_agent.Anthropic')
     def test_model_property(self, mock_anthropic, claude_config, logger, temp_prompts_dir):
         """Test the model property returns correct model version."""
         mock_client = Mock()
@@ -306,8 +307,8 @@ class TestClaudeLLMAgent:
         
         assert agent.model == "claude-3-5-haiku-latest"
 
-    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
-    @patch('src.agents.anthropic_agent.Anthropic')
+    @patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
+    @patch('dsat.agents.anthropic_agent.Anthropic')
     def test_invoke_with_custom_model_parameters(self, mock_anthropic, logger, temp_prompts_dir):
         """Test invoke with custom model parameters."""
         config = AgentConfig(
@@ -342,11 +343,11 @@ class TestClaudeLLMAgent:
         assert call_args['max_tokens'] == 8192
         assert call_args['model'] == "claude-3-opus"
 
-    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
-    @patch('src.agents.anthropic_agent.Anthropic')
+    @patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
+    @patch('dsat.agents.anthropic_agent.Anthropic')
     def test_invoke_with_conversation_history(self, mock_anthropic, claude_config, logger, temp_prompts_dir):
         """Test invoke method with conversation history."""
-        from src.cli.memory import ConversationMessage
+        from dsat.cli.memory import ConversationMessage
         
         mock_content = Mock()
         mock_content.text = "I can see you asked about Python earlier."
@@ -382,8 +383,8 @@ class TestClaudeLLMAgent:
         assert messages[2]['role'] == 'user'
         assert messages[2]['content'] == "What did I just ask about?"
 
-    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
-    @patch('src.agents.anthropic_agent.Anthropic')
+    @patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True)
+    @patch('dsat.agents.anthropic_agent.Anthropic')
     def test_invoke_without_history_backward_compatibility(self, mock_anthropic, claude_config, logger, temp_prompts_dir):
         """Test invoke method still works without history parameter (backward compatibility)."""
         mock_content = Mock()
@@ -410,8 +411,8 @@ class TestClaudeLLMAgent:
         assert messages[0]['role'] == 'user'
         assert messages[0]['content'] == "Hello"
 
-    @patch('src.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True) 
-    @patch('src.agents.anthropic_agent.Anthropic')
+    @patch('dsat.agents.anthropic_agent.ANTHROPIC_AVAILABLE', True) 
+    @patch('dsat.agents.anthropic_agent.Anthropic')
     def test_invoke_with_empty_history(self, mock_anthropic, claude_config, logger, temp_prompts_dir):
         """Test invoke method with empty history list."""
         mock_content = Mock()

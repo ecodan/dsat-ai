@@ -271,14 +271,17 @@ class GoogleVertexAIAgent(Agent):
             context_parts.append(system_prompt)
         
         # Add conversation history if provided
-        if history:
+        if history is not None:
+            # When history is explicitly provided (even if empty), we're in conversation mode
             for msg in history:
                 # Format each message clearly
                 role_label = "Human" if msg.role == "user" else "Assistant"
                 context_parts.append(f"{role_label}: {msg.content}")
-        
-        # Add current user prompt
-        context_parts.append(f"Human: {user_prompt}")
+            # In conversation mode, add "Human: " prefix to current user prompt
+            context_parts.append(f"Human: {user_prompt}")
+        else:
+            # When no history parameter is provided, use backward compatibility mode (no Human: prefix)
+            context_parts.append(user_prompt)
         
         # Join all parts with double newlines for clear separation
         return "\n\n".join(context_parts)

@@ -95,9 +95,9 @@ def test_no_coupling_violations():
     
     # Check that no agents imports exist in scryptorum modules
     scryptorum_modules = [
-        scryptorum.core.experiment,
-        scryptorum.core.runs, 
-        scryptorum.core.config
+        dsat.scryptorum.core.experiment,
+        dsat.scryptorum.core.runs, 
+        dsat.scryptorum.core.config
     ]
     
     for module in scryptorum_modules:

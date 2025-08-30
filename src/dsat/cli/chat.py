@@ -36,7 +36,7 @@ except ImportError:
     COLORS_AVAILABLE = False
 
 from ..agents.agent import Agent, AgentConfig
-from .memory import MemoryManager, ConversationMessage, TokenCounter
+from .memory import ConversationMessage, TokenCounter
 from .extensible_memory import ExtensibleMemoryManager
 from .memory_interfaces import BaseMemoryManager
 
@@ -535,11 +535,11 @@ class ChatInterface:
                 print(f"  Description: {current_strategy.description}")
                 
                 if current_strategy.config:
-                    print(f"  Configuration:")
+                    print("  Configuration:")
                     for key, value in current_strategy.config.items():
                         print(f"    {key}: {value}")
                 else:
-                    print(f"  Configuration: Default settings")
+                    print("  Configuration: Default settings")
             
             # Show plugins info
             plugins = registry.list_plugins()
@@ -609,7 +609,14 @@ class ChatInterface:
                 models = [
                     model["name"].split(":")[0] for model in data.get("models", [])
                 ]
-                return list(set(models))  # Remove duplicates
+                # Remove duplicates while preserving order
+                seen = set()
+                unique_models = []
+                for model in models:
+                    if model not in seen:
+                        seen.add(model)
+                        unique_models.append(model)
+                return unique_models
         except (requests.exceptions.RequestException, requests.exceptions.Timeout):
             pass
         return []

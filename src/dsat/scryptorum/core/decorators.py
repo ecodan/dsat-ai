@@ -15,6 +15,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 # Global run context for decorator access
 _current_run: Optional[Run] = None
 _default_run_type: RunType = None  # Will be set by CLI or manually
+_default_run_id: Optional[str] = None  # Will be set by CLI if specified
 
 
 def set_default_run_type(run_type: Union[RunType, str]) -> None:
@@ -29,6 +30,17 @@ def set_default_run_type(run_type: Union[RunType, str]) -> None:
 def get_default_run_type() -> RunType:
     """Get the default run type."""
     return _default_run_type or RunType.TRIAL
+
+
+def set_default_run_id(run_id: Optional[str]) -> None:
+    """Set the default run ID for decorators."""
+    global _default_run_id
+    _default_run_id = run_id
+
+
+def get_default_run_id() -> Optional[str]:
+    """Get the default run ID."""
+    return _default_run_id
 
 
 def set_current_run(run: Run) -> None:
@@ -80,9 +92,10 @@ def experiment(name: Optional[str] = None):
             project_root = kwargs.pop("project_root", ".")
             exp = Experiment(project_root, experiment_name)
 
-            # Use the globally configured run type
+            # Use the globally configured run type and run_id
             run_type_enum = get_default_run_type()
-            run = exp.create_run(run_type_enum)
+            run_id = get_default_run_id()
+            run = exp.create_run(run_type_enum, run_id)
 
             try:
                 with run_context(run):
